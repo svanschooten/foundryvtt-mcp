@@ -2,7 +2,7 @@
  * @fileoverview Unit tests for get_actor_items — listing and reading owned items
  */
 
-import { McpError } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { FoundryClient } from '../../../foundry/client.js';
 import type { WorldItem } from '../../../foundry/types.js';
@@ -192,6 +192,22 @@ describe('handleGetActorItems', () => {
     it('rejects a missing actorId', async () => {
       const { client } = mockClient();
       await expect(handleGetActorItems({ actorId: '' }, client)).rejects.toBeInstanceOf(McpError);
+    });
+
+    it.each([
+      ['type', ['spell']],
+      ['query', 42],
+      ['itemId', { id: 'x' }],
+    ])('rejects a non-string %s as invalid params', async (key, value) => {
+      const { client, getActorItems } = mockClient();
+      const error = await handleGetActorItems(
+        { actorId: ACTOR_ID, [key]: value } as unknown as { actorId: string },
+        client,
+      ).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(McpError);
+      expect((error as McpError).code).toBe(ErrorCode.InvalidParams);
+      expect((error as McpError).message).toContain(key);
+      expect(getActorItems).not.toHaveBeenCalled();
     });
 
     it('surfaces client errors as McpError', async () => {

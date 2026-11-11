@@ -105,6 +105,11 @@ export async function handleGetActorItems(
   if (!actorId || typeof actorId !== 'string') {
     throw new McpError(ErrorCode.InvalidParams, 'actorId is required and must be a string');
   }
+  for (const [name, value] of Object.entries({ type, query, itemId })) {
+    if (value !== undefined && typeof value !== 'string') {
+      throw new McpError(ErrorCode.InvalidParams, `${name} must be a string when given`);
+    }
+  }
 
   return withToolError('get actor items', async () => {
     const { actor, items } = foundryClient.getActorItems(actorId);
