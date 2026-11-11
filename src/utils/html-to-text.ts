@@ -60,9 +60,10 @@ function replaceEnrichers(text: string): string {
       .replace(/\[\[(?:\/[a-z]+\s+)?([^\]]*?)\]\](?:\{([^}]*)\})?/gi, (_m, formula, label) =>
         (label ?? formula).trim(),
       )
-      // Content links: @UUID[...]{Label}, @Compendium[...]{Label}, @Check[...]
+      // Content links: @UUID[...]{Label}, @Compendium[...]{Label}, @Check[...],
+      // and dnd5e's &Reference[...]{Label}
       .replace(
-        /@([A-Za-z]+)\[([^\]]*)\](?:\{([^}]*)\})?/g,
+        /[@&]([A-Za-z]+)\[([^\]]*)\](?:\{([^}]*)\})?/g,
         (_m, kind: string, target: string, label?: string) =>
           (label ?? unlabelledLinkText(kind, target)).trim(),
       )
@@ -70,11 +71,17 @@ function replaceEnrichers(text: string): string {
 }
 
 /**
- * Text for a content link without a `{Label}`. Legacy `@Compendium[pack.Name]`
- * links end in the document's name, so print that; an id-based target cannot
+ * Text for a content link without a `{Label}`. dnd5e `&Reference[key=value]`
+ * prints the value; legacy `@Compendium[pack.Name]` links end in the
+ * document's name, so print that; an id-based target cannot
  * be resolved here and is kept whole, since it is the only lookup key.
  */
 function unlabelledLinkText(kind: string, target: string): string {
+  if (kind.toLowerCase() === 'reference') {
+    // &Reference[condition=charmed apply=false] -> charmed
+    const first = target.trim().split(/\s+/)[0] ?? '';
+    return first.slice(first.indexOf('=') + 1);
+  }
   if (kind.toLowerCase() === 'compendium') {
     const last = target.slice(target.lastIndexOf('.') + 1);
     if (last !== '' && !/^[a-zA-Z0-9]{16}$/.test(last)) {
@@ -114,7 +121,8 @@ export function htmlToText(html: unknown): string {
     // Only tag-shaped text: a bare "3 < 5" in stored text is not a tag.
     .replace(/<\/?[a-z][^>]*>/gi, '');
 
-  text = decodeEntities(replaceEnrichers(text));
+  // Decode first: dnd5e stores its &Reference links with the & escaped as &amp;.
+  text = replaceEnrichers(decodeEntities(text));
 
   return text
     .split('\n')
