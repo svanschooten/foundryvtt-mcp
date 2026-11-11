@@ -59,6 +59,11 @@ describe('actorProgression', () => {
     ]);
   });
 
+  it('strips accents and quotes when slugifying a class name', () => {
+    const a = actor('character', {}, [cls("Séance Pugilist's", 1), sub('Way', 'seance-pugilists')]);
+    expect(actorProgression(a).classes?.[0]?.subclass).toBe('Way');
+  });
+
   it('leaves subclass out when none is linked', () => {
     const a = actor('character', {}, [cls('Wizard', 1, 'wizard')]);
     expect(actorProgression(a).classes).toEqual([{ name: 'Wizard', levels: 1 }]);

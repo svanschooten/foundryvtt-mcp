@@ -45,7 +45,7 @@ function finite(value: unknown): number | undefined {
 function slugify(name: string): string {
   return name
     .normalize('NFD')
-    .replace(/[̀-ͯ'"]/g, '')
+    .replace(/[\u0300-\u036f'"]/g, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
