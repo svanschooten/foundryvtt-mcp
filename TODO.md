@@ -29,11 +29,11 @@ Sections are in order of priority.
 - **Where:** `handleSearchItems` / `searchItems` in `src/foundry/client.ts`; `foundry://items` resource.
 - **Tested 2026-11-11:** the world has 103 spells and 44 features in the Items sidebar, many of them custom (e.g. "Aura of Selune", "Acidic Bile Sprayer"). `search_items` returns only name, type and a meaningless "Common" / "Unknown price". No id and no description, so the text of a custom feature or spell can't be read. `searchItems` already extracts the description but the handler never prints it. Duplicate names (two "Arcane Vigor") can't be told apart.
 - **To do:**
-  - [ ] Print each item's `_id` and folder name in `search_items`.
-  - [ ] Drop the made-up "Common" rarity and "Unknown price"; print stored rarity and price only when set.
-  - [ ] Add a read-only `get_item` tool (by id) returning the full stored item: description and the same fields as the `itemId` mode of `get_actor_items`. Share the formatting code between the two.
-  - [ ] Include item description text in `search_items` matching (optional `searchText` flag), like `search_journals` does for pages.
-  - [ ] Update tool descriptions.
+  - [x] Print each item's `_id` and folder name in `search_items`.
+  - [x] Drop the made-up "Common" rarity and "Unknown price"; print stored rarity and price only when set.
+  - [x] Add a read-only `get_item` tool (by id) returning the full stored item: description and the same fields as the `itemId` mode of `get_actor_items`. Share the formatting code between the two.
+  - [x] Include item description text in `search_items` matching (optional `searchText` flag), like `search_journals` does for pages.
+  - [x] Update tool descriptions.
 
 ## 3. `search_actors` doesn't return ids
 
