@@ -39,6 +39,12 @@ function scalar(value: unknown): string | undefined {
   return n !== undefined ? String(n) : str(value);
 }
 
+/** A stored distance or count; 0 is dnd5e's "not set" for these, so it is left out. */
+function amount(value: unknown): string | undefined {
+  const text = scalar(value);
+  return text === '0' ? undefined : text;
+}
+
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
@@ -174,8 +180,8 @@ function describeRange(range: unknown): string | undefined {
   if (!r) {
     return undefined;
   }
-  const value = scalar(r.value);
-  const long = scalar(r.long);
+  const value = amount(r.value);
+  const long = amount(r.long);
   const distance = value && long ? `${value}/${long}` : value;
   return joinParts(distance, str(r.units), str(r.special));
 }
@@ -201,8 +207,16 @@ function describeTarget(target: unknown): string | undefined {
     const parts = [area, who && `affects ${who}`].filter(Boolean);
     return parts.length > 0 ? parts.join('; ') : undefined;
   }
-  const width = scalar(t.width);
-  return joinParts(scalar(t.value), str(t.units), str(t.type), width && `(width ${width})`);
+  const width = amount(t.width);
+  const units = str(t.units);
+  const type = str(t.type);
+  // dnd5e 3.x stores a self target as units and type both 'self'
+  return joinParts(
+    amount(t.value),
+    units,
+    type === units ? undefined : type,
+    width && `(width ${width})`,
+  );
 }
 
 function describeDuration(duration: unknown): string | undefined {
@@ -221,7 +235,9 @@ function describeDuration(duration: unknown): string | undefined {
 /** One damage part: 3.x `[formula, type]`, 4.x `{number, denomination, bonus, types, custom}`. */
 function describeDamagePart(part: unknown): string | undefined {
   if (Array.isArray(part)) {
-    return joinParts(str(part[0]), str(part[1]));
+    // A part with a type but no formula (e.g. ['', 'healing']) carries nothing.
+    const formula = str(part[0]);
+    return formula ? joinParts(formula, str(part[1])) : undefined;
   }
   const p = rec(part);
   if (!p) {

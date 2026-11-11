@@ -331,6 +331,26 @@ describe('handleGetActorItems', () => {
   });
 
   describe('single-item mode (itemId)', () => {
+    it('leaves out stored zeroes, repeated units and formula-less damage', async () => {
+      // As stored on a live dnd5e 3.1 world: a self-range healing spell.
+      const vigor: WorldItem = {
+        _id: 'spellArcVigor001',
+        name: 'Arcane Vigor',
+        type: 'spell',
+        system: {
+          level: 2,
+          range: { value: 0, long: 0, units: 'self' },
+          target: { value: 0, width: null, units: 'self', type: 'self' },
+          actionType: 'heal',
+          damage: { parts: [['', 'healing']], versatile: '' },
+        },
+      };
+      const text = await run({ actorId: ACTOR_ID, itemId: vigor._id }, [vigor]);
+      expect(text).toMatch(/\*\*Range:\*\* self$/m);
+      expect(text).toMatch(/\*\*Target:\*\* self$/m);
+      expect(text).not.toMatch(/Damage:/);
+    });
+
     it('returns the full description converted to text', async () => {
       const text = await run({ actorId: ACTOR_ID, itemId: 'featAuraSelune01' });
       expect(text).toContain('Aura of Selune');
