@@ -476,6 +476,65 @@ describe('FoundryClient', () => {
     });
   });
 
+  describe('actor level, classes and CR (dnd5e stored data)', () => {
+    function clientWithActors(actors: unknown[]) {
+      const c = new FoundryClient({ baseUrl: 'http://localhost:30000' });
+      Reflect.set(c, 'worldData', { actors });
+      return c;
+    }
+
+    const VEX = {
+      _id: 'actorVex00000001',
+      name: 'Vex',
+      type: 'character',
+      system: { details: {} },
+      items: [
+        {
+          _id: 'classFighter0001',
+          name: 'Fighter',
+          type: 'class',
+          system: { identifier: 'fighter', levels: 5 },
+        },
+        {
+          _id: 'subBattleMaster1',
+          name: 'Battle Master',
+          type: 'subclass',
+          system: { classIdentifier: 'fighter' },
+        },
+        {
+          _id: 'classRogue000001',
+          name: 'Rogue',
+          type: 'class',
+          system: { identifier: 'rogue', levels: 2 },
+        },
+      ],
+    };
+    const GOBLIN = {
+      _id: 'actorGoblin00001',
+      name: 'Goblin',
+      type: 'npc',
+      system: { details: { cr: 0.25 } },
+      items: [],
+    };
+
+    it('derives a multiclass character level from its class items in getActor', async () => {
+      client = clientWithActors([VEX]);
+      const actor = await client.getActor('actorVex00000001');
+      expect(actor.level).toBe(7);
+      expect(actor.classes).toEqual([
+        { name: 'Fighter', levels: 5, subclass: 'Battle Master' },
+        { name: 'Rogue', levels: 2 },
+      ]);
+    });
+
+    it('carries NPC CR through searchActors', async () => {
+      client = clientWithActors([VEX, GOBLIN]);
+      const { actors } = await client.searchActors({ type: 'npc' });
+      expect(actors[0]?.cr).toBe(0.25);
+      expect(actors[0]?.level).toBeUndefined();
+    });
+  });
+
   describe('dice rolling', () => {
     beforeEach(() => {
       client = new FoundryClient({ baseUrl: 'http://localhost:30000' });

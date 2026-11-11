@@ -9,6 +9,7 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse 
 import { io, type Socket } from 'socket.io-client';
 import { z } from 'zod';
 import { logger } from '../utils/logger.js';
+import { actorProgression } from './actor-progression.js';
 import { authenticateFoundry, sessionSocketOptions } from './auth.js';
 import { evaluateDiceFormula } from './dice-formula.js';
 import type {
@@ -1780,8 +1781,15 @@ function worldActorToFoundry(a: WorldActor): FoundryActor {
     actor.ac = { value: ac.value };
   }
 
-  if (typeof details.level === 'number') {
-    actor.level = details.level;
+  const progression = actorProgression(a);
+  if (progression.level !== undefined) {
+    actor.level = progression.level;
+  }
+  if (progression.classes) {
+    actor.classes = progression.classes;
+  }
+  if (progression.cr !== undefined) {
+    actor.cr = progression.cr;
   }
 
   if (mappedAbilities) {
