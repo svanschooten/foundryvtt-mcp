@@ -40,7 +40,7 @@ import {
   handleDeleteActorItem,
   handleUpdateActorItem,
 } from './handlers/item-mutations.js';
-import { handleSearchItems } from './handlers/items.js';
+import { handleGetItem, handleSearchItems } from './handlers/items.js';
 import { handleCreateJournalEntry } from './handlers/journal-mutations.js';
 import { handleGetJournal, handleSearchJournals } from './handlers/journals.js';
 import { handleReadResource } from './handlers/resources.js';
@@ -129,6 +129,11 @@ export async function routeToolRequest(
     // Item tools
     case 'search_items':
       return handleSearchItems(args, foundryClient);
+    case 'get_item':
+      if (!('itemId' in args) || typeof args.itemId !== 'string') {
+        throw new Error('Missing required parameter: itemId');
+      }
+      return handleGetItem(args as { itemId: string }, foundryClient);
 
     // Compendium tools (#144)
     case 'search_compendium':

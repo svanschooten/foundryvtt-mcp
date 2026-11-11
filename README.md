@@ -141,7 +141,8 @@ Ask your AI assistant things like:
 - `search_actors` — find characters, NPCs, monsters (with their ids)
 - `get_actor_details` — detailed character information
 - `get_actor_items` — an actor's owned items, features and spells (with ids), or one item in full
-- `search_items` — find equipment, spells, consumables
+- `search_items` — find world items, spells and features (with ids and folders; optionally by description text)
+- `get_item` — one world item in full: description and stored mechanics
 - `get_scene_info` — current scene details
 - `search_journals` — search notes and handouts
 - `get_journal` — retrieve a specific journal entry

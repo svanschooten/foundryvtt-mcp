@@ -102,7 +102,7 @@ export const actorTools = [
   {
     name: 'get_actor_items',
     description:
-      "List the items an actor owns - class and subclass items, features and feats, spells, weapons, equipment, consumables and other inventory, including homebrew - or read one owned item in full. Read-only. The list is grouped by item type (spells by spell level) and prints each item's id with the stored fields that matter at the table: quantity, equipped, attunement, armor class, magical bonus, limited uses, recharge, and for spells the school, preparation and ritual/concentration; class items show their levels. With itemId it returns that one item's stored detail: description as text, activation, range, target, duration, attack and damage formulas, armor, save, requirements, components and source. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Get the actorId from search_actors. Use when: you need to know what a character can do or carries, read the text of a feature or spell on a character, or get the itemId that update_actor_item / delete_actor_item need. Do not use when: searching the world's Items sidebar (use search_items) or compendium packs (use search_compendium).",
+      "List the items an actor owns - class and subclass items, features and feats, spells, weapons, equipment, consumables and other inventory, including homebrew - or read one owned item in full. Read-only. The list is grouped by item type (spells by spell level) and prints each item's id with the stored fields that matter at the table: quantity, equipped, attunement, armor class, magical bonus, limited uses, recharge, and for spells the school, preparation and ritual/concentration; class items show their levels. With itemId it returns that one item's stored detail: description as text, activation, range, target, duration, attack and damage formulas, armor, save, requirements, components and source. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Get the actorId from search_actors. Use when: you need to know what a character can do or carries, read the text of a feature or spell on a character, or get the itemId that update_actor_item / delete_actor_item need. Do not use when: searching or reading the world's Items sidebar (use search_items / get_item) or compendium packs (use search_compendium).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -171,7 +171,7 @@ export const itemTools = [
   {
     name: 'search_items',
     description:
-      'Search item documents in the world by name, optionally filtered by type. Returns name, type and rarity per match (rarity shows "Common" when the system records none); price is not available and always prints "Unknown price", and the rarity filter is ignored unless the REST API module is configured (FOUNDRY_API_KEY). Item ids are not printed - read the foundry://items resource, whose JSON lists up to the first 100 items with their _id (not exhaustive in larger worlds). Use when: checking whether an item exists in the world. Do not use when: searching compendium packs (use search_compendium) or listing what one actor carries (this searches world items, not owned items).',
+      "Search the world's Items sidebar by name (and, with searchText, by description), optionally filtered by type and rarity. Returns one line per match: name, itemId, type, and the stored rarity, price and folder when set (nothing is filled in when they are not stored); with searchText, matches found only in the description show the matching passage. Says how many more match when the limit cuts the list short. Use when: finding a world item, spell or feature - including homebrew - or getting the itemId that get_item needs; duplicate names are told apart by id and folder. Do not use when: searching compendium packs (use search_compendium) or listing what one actor carries (use get_actor_items - this searches world items, not owned items).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -186,14 +186,35 @@ export const itemTools = [
         rarity: {
           type: 'string',
           description:
-            'Item rarity filter (common, uncommon, rare, etc.). Applied only in REST API mode (FOUNDRY_API_KEY); ignored on the default Socket.IO path.',
+            'Item rarity filter, matched case-insensitively against the stored rarity (common, uncommon, rare, veryRare, legendary, artifact). Items with no stored rarity never match.',
         },
         limit: {
           type: 'number',
           description: 'Maximum number of results to return',
           default: 10,
         },
+        searchText: {
+          type: 'boolean',
+          description:
+            "Also match the query against each item's description text, not just its name (default false)",
+          default: false,
+        },
       },
+    },
+  },
+  {
+    name: 'get_item',
+    description:
+      "Read one world item (from the Items sidebar) in full by id: folder, description as text, and its stored fields - activation, range, target, duration, attack and damage formulas, armor, save, uses, requirements, components, rarity, price and source. Read-only. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Get the itemId from search_items. Use when: reading the text or mechanics of a world item, spell or feature, including homebrew. Do not use when: the item is owned by an actor (use get_actor_items with itemId) or lives in a compendium pack (use search_compendium).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        itemId: {
+          type: 'string',
+          description: 'The id of the world item, as printed by search_items',
+        },
+      },
+      required: ['itemId'],
     },
   },
 ];
@@ -838,7 +859,7 @@ export const worldTools = [
   {
     name: 'search_world',
     description:
-      'Search across all collections (actors, items, scenes, journals) by name, grouped by collection. Use when: you do not know which collection holds what you are looking for. Do not use when: you already know the collection - use search_actors, search_items, or search_journals. This tool prints no ids: use search_actors for actor ids and search_journals for journal ids; for item ids read the foundry://items resource, which lists up to the first 100 items (not exhaustive in larger worlds).',
+      'Search across all collections (actors, items, scenes, journals) by name, grouped by collection. Use when: you do not know which collection holds what you are looking for. Do not use when: you already know the collection - use search_actors, search_items, or search_journals. This tool prints no ids: use search_actors for actor ids, search_items for item ids and search_journals for journal ids.',
     inputSchema: {
       type: 'object',
       properties: {
