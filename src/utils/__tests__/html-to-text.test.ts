@@ -82,6 +82,19 @@ describe('htmlToText', () => {
     expect(htmlToText('@UUID[Actor.abc123]')).toBe('Actor.abc123');
   });
 
+  it('replaces dnd5e &Reference links, stored with an escaped &', () => {
+    expect(
+      htmlToText(
+        '<p>A 30-foot &amp;Reference[cube]{cube}; make a &amp;Reference[wis]{Wisdom} save or be &amp;Reference[condition=charmed apply=false].</p>',
+      ),
+    ).toBe('A 30-foot cube; make a Wisdom save or be charmed.');
+    expect(htmlToText('Be &Reference[prone].')).toBe('Be prone.');
+  });
+
+  it('leaves an escaped ampersand that is not a link alone', () => {
+    expect(htmlToText('Salt &amp; pepper &amp;c.')).toBe('Salt & pepper &c.');
+  });
+
   it('uses the name of a legacy name-based link without a label', () => {
     expect(htmlToText('Cast @Compendium[dnd5e.spells.Fireball].')).toBe('Cast Fireball.');
     expect(htmlToText('@Compendium[dnd5e.spells.Item.abcdefgh12345678]')).toBe(

@@ -425,6 +425,23 @@ describe('handleGetActorItems', () => {
         expect(text).not.toMatch(/Proficient/);
       });
 
+      it('does not print a tool check ability as an attack', async () => {
+        const instrument: WorldItem = {
+          _id: 'toolBandore00001',
+          name: 'Instrument of the Bards',
+          type: 'tool',
+          system: {
+            ability: 'int',
+            type: { value: 'music' },
+            attunement: 'required',
+            attuned: true,
+          },
+        };
+        const text = await run({ actorId: ACTOR_ID, itemId: instrument._id }, [instrument]);
+        expect(text).not.toMatch(/Attack:/);
+        expect(text).toMatch(/Ability:\*\* int/);
+      });
+
       it('shows armor class and magical bonus in the list', async () => {
         const text = await run({ actorId: ACTOR_ID }, [LONGSWORD, PLATE, SHIELD]);
         expect(section(text, '## Weapons')).toMatch(/Longsword \+1.*\+1 magical/);

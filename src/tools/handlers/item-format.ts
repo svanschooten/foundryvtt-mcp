@@ -309,6 +309,9 @@ function describeWeight(weight: unknown): string | undefined {
   return value ? String(value) : undefined;
 }
 
+/** dnd5e 3.x attack action types (melee/ranged weapon/spell attack). */
+const ATTACK_ACTIONS: ReadonlySet<string> = new Set(['mwak', 'rwak', 'msak', 'rsak']);
+
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : String(n);
 }
@@ -564,7 +567,13 @@ export function formatItemDetails(
   add('Target', describeTarget(sys.target));
   add('Duration', describeDuration(sys.duration));
   add('Action type', str(sys.actionType));
-  add('Attack', describeAttack(sys.attack, str(sys.ability), scalar(sys.attackBonus)));
+  // 3.x keeps `ability` on every item; it is only an attack ability for attack
+  // actions (a tool's is its check ability).
+  if (rec(sys.attack) || ATTACK_ACTIONS.has(str(sys.actionType) ?? '')) {
+    add('Attack', describeAttack(sys.attack, str(sys.ability), scalar(sys.attackBonus)));
+  } else {
+    add('Ability', str(sys.ability));
+  }
   add('Damage', describeDamage(sys.damage));
   const damage = rec(sys.damage);
   add('Versatile', str(damage?.versatile) ?? describeDamagePart(damage?.versatile));
