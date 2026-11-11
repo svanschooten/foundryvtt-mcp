@@ -481,6 +481,7 @@ export function formatItemSummary(
 export function formatItemDetails(
   item: WorldItem,
   containerNames: ReadonlyMap<string, string> = new Map(),
+  options: { folderName?: string } = {},
 ): string {
   const sys = systemOf(item);
   const lines: string[] = [`### ${item.name}`, `**Item ID:** \`${item._id}\``];
@@ -489,6 +490,8 @@ export function formatItemDetails(
       lines.push(`**${label}:** ${value}`);
     }
   };
+
+  add('Folder', options.folderName);
 
   add('Type', item.type);
   add('Category', describeCategory(sys));
