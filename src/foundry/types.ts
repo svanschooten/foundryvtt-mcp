@@ -79,7 +79,12 @@ export interface FoundryActor {
     max: number;
   };
   currency?: Record<string, number>;
+  /** Stored biography HTML (dnd5e `details.biography.value`). */
   biography?: string;
+  /** Stored public biography HTML (dnd5e `details.biography.public`), shown to players. */
+  publicBiography?: string;
+  /** Stored plain-text characteristics (dnd5e `details.appearance`, `trait`, …), when set. */
+  characteristics?: Partial<Record<'appearance' | 'trait' | 'ideal' | 'bond' | 'flaw', string>>;
   notes?: string;
 }
 

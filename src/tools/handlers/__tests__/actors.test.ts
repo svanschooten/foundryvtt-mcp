@@ -308,3 +308,57 @@ describe('handleGetActorDetails', () => {
     await expect(handleGetActorDetails({ actorId: 'actor-1' }, client)).rejects.toThrow(McpError);
   });
 });
+
+describe('handleGetActorDetails — biography', () => {
+  async function details(overrides: Partial<FoundryActor>): Promise<string> {
+    const client = {
+      getActor: vi.fn().mockResolvedValue(buildActor(overrides)),
+    } as unknown as FoundryClient;
+    return getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+  }
+
+  it('prints the stored biography as text', async () => {
+    const text = await details({
+      biography:
+        '<h2>Origins</h2><p>Born under a &amp;Reference[blinded]{blood} moon.</p><ul><li><p>Loses his memory on death.</p></li></ul>',
+    });
+    expect(text).toContain('**Biography:**\n## Origins\n\nBorn under a blood moon.');
+    expect(text).toContain('- Loses his memory on death.');
+    expect(text).not.toContain('No description available');
+  });
+
+  it('says so when no biography is stored', async () => {
+    const text = await details({});
+    expect(text).toContain('**Biography:** not stored');
+  });
+
+  it('prints the public biography when it differs', async () => {
+    const text = await details({
+      biography: '<p>Secretly a son of Selune.</p>',
+      publicBiography: '<p>A wandering cleric.</p>',
+    });
+    expect(text).toContain('**Public biography:**\nA wandering cleric.');
+  });
+
+  it('leaves out a public biography that matches the biography', async () => {
+    const text = await details({ biography: '<p>Same.</p>', publicBiography: '<p>Same.</p>' });
+    expect(text).not.toContain('Public biography');
+  });
+
+  it('prints stored appearance, traits, ideals, bonds and flaws', async () => {
+    const text = await details({
+      characteristics: {
+        appearance: 'Silver hair, pale eyes',
+        trait: 'Calm under pressure',
+        ideal: 'Mercy',
+        bond: 'His lost wife',
+        flaw: 'Forgets everything',
+      },
+    });
+    expect(text).toContain('**Appearance:** Silver hair, pale eyes');
+    expect(text).toContain('**Personality traits:** Calm under pressure');
+    expect(text).toContain('**Ideals:** Mercy');
+    expect(text).toContain('**Bonds:** His lost wife');
+    expect(text).toContain('**Flaws:** Forgets everything');
+  });
+});
