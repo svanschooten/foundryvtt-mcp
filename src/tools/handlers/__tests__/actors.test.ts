@@ -56,6 +56,21 @@ describe('handleSearchActors', () => {
     expect(text).toContain('**Results:** 2/2');
   });
 
+  it("prints each actor's id next to its name", async () => {
+    const actors: FoundryActor[] = [
+      buildActor({ _id: 'actorAragorn0001', name: 'Aragorn', type: 'character' }),
+      buildActor({ _id: 'actorGoblin00001', name: 'Goblin', type: 'npc' }),
+    ];
+    const client = {
+      searchActors: vi.fn().mockResolvedValue({ actors, total: 2, page: 1, limit: 10 }),
+    } as unknown as FoundryClient;
+
+    const text = getText(await handleSearchActors({}, client));
+
+    expect(text).toMatch(/\*\*Aragorn\*\* `actorAragorn0001`/);
+    expect(text).toMatch(/\*\*Goblin\*\* `actorGoblin00001`/);
+  });
+
   it('passes through type filter when supplied', async () => {
     const searchResult: ActorSearchResult = { actors: [], total: 0, page: 1, limit: 5 };
     const client = {

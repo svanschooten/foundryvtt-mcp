@@ -34,7 +34,7 @@ export async function handleSearchActors(
     const actorList = result.actors
       .map(
         (actor) =>
-          `- **${actor.name}** (${actor.type}) - Level ${actor.level || 'Unknown'} - HP: ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}`,
+          `- **${actor.name}** \`${actor._id}\` (${actor.type}) - Level ${actor.level || 'Unknown'} - HP: ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}`,
       )
       .join('\n');
 

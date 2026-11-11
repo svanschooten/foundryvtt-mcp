@@ -64,7 +64,7 @@ export const actorTools = [
   {
     name: 'search_actors',
     description:
-      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, type, level and current/max HP. Use when: checking whether an actor exists, or getting a quick roster with HP. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details; or you need the actorId itself, which this tool does not print - read the foundry://actors resource, whose JSON lists up to the first 100 actors with their _id (not exhaustive in larger worlds).",
+      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, actorId, type, level and current/max HP. Use when: checking whether an actor exists, getting a quick roster with HP, or looking up the actorId that get_actor_details, get_actor_items and the actor write tools need. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details - or its items, features and spells - use get_actor_items.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -102,7 +102,7 @@ export const actorTools = [
   {
     name: 'get_actor_items',
     description:
-      "List the items an actor owns - class and subclass items, features and feats, spells, weapons, equipment, consumables and other inventory, including homebrew - or read one owned item in full. Read-only. The list is grouped by item type (spells by spell level) and prints each item's id with the stored fields that matter at the table: quantity, equipped, attunement, limited uses, recharge, and for spells the school, preparation and ritual/concentration; class items show their levels. With itemId it returns that one item's stored detail: description as text, activation, range, target, duration, damage formulas, save, requirements, components and source. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Use when: you need to know what a character can do or carries, read the text of a feature or spell on a character, or get the itemId that update_actor_item / delete_actor_item need. Do not use when: searching the world's Items sidebar (use search_items) or compendium packs (use search_compendium).",
+      "List the items an actor owns - class and subclass items, features and feats, spells, weapons, equipment, consumables and other inventory, including homebrew - or read one owned item in full. Read-only. The list is grouped by item type (spells by spell level) and prints each item's id with the stored fields that matter at the table: quantity, equipped, attunement, limited uses, recharge, and for spells the school, preparation and ritual/concentration; class items show their levels. With itemId it returns that one item's stored detail: description as text, activation, range, target, duration, damage formulas, save, requirements, components and source. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Get the actorId from search_actors. Use when: you need to know what a character can do or carries, read the text of a feature or spell on a character, or get the itemId that update_actor_item / delete_actor_item need. Do not use when: searching the world's Items sidebar (use search_items) or compendium packs (use search_compendium).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -838,7 +838,7 @@ export const worldTools = [
   {
     name: 'search_world',
     description:
-      'Search across all collections (actors, items, scenes, journals) by name, grouped by collection. Use when: you do not know which collection holds what you are looking for. Do not use when: you already know the collection - use search_actors, search_items, or search_journals. Of those, only search_journals prints document ids; for actor and item ids read the foundry://actors and foundry://items resources, each of which lists up to the first 100 documents (not exhaustive in larger worlds).',
+      'Search across all collections (actors, items, scenes, journals) by name, grouped by collection. Use when: you do not know which collection holds what you are looking for. Do not use when: you already know the collection - use search_actors, search_items, or search_journals. This tool prints no ids: use search_actors for actor ids and search_journals for journal ids; for item ids read the foundry://items resource, which lists up to the first 100 items (not exhaustive in larger worlds).',
     inputSchema: {
       type: 'object',
       properties: {
