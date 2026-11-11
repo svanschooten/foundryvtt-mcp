@@ -285,6 +285,21 @@ describe('handleGetActorDetails', () => {
     expect(text).toContain('**STR:** 8 (-1)');
   });
 
+  it('prints the score alone when no modifier is stored', async () => {
+    const actor = buildActor({
+      abilities: { dex: { value: 20 }, con: {} },
+    });
+    const client = {
+      getActor: vi.fn().mockResolvedValue(actor),
+    } as unknown as FoundryClient;
+
+    const text = getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+
+    expect(text).toMatch(/\*\*DEX:\*\* 20$/m);
+    expect(text).toMatch(/\*\*CON:\*\* not stored$/m);
+    expect(text).not.toContain('(+0)');
+  });
+
   it('wraps fetch errors in McpError', async () => {
     const client = {
       getActor: vi.fn().mockRejectedValue(new Error('not found')),
