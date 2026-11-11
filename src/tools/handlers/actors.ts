@@ -8,6 +8,7 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { formatChallengeRating } from '../../foundry/actor-progression.js';
 import type { FoundryClient } from '../../foundry/client.js';
 import type { FoundryActor } from '../../foundry/types.js';
+import { htmlToText } from '../../utils/html-to-text.js';
 import { withToolError } from './utils.js';
 
 /** "Fighter 5 (Battle Master) / Rogue 2"; subclasses only when asked for. */
@@ -55,6 +56,35 @@ function formatAbility(ability: { value?: number; mod?: number }): string {
     return String(ability.value);
   }
   return `${ability.value} (${ability.mod >= 0 ? '+' : ''}${ability.mod})`;
+}
+
+const CHARACTERISTIC_LABELS = [
+  ['appearance', 'Appearance'],
+  ['trait', 'Personality traits'],
+  ['ideal', 'Ideals'],
+  ['bond', 'Bonds'],
+  ['flaw', 'Flaws'],
+] as const;
+
+/**
+ * Stored biography as text, the public biography when it says something
+ * else, and any stored characteristics (appearance, traits, ideals, …).
+ */
+function formatBiography(actor: FoundryActor): string {
+  const biography = htmlToText(actor.biography);
+  const publicBiography = htmlToText(actor.publicBiography);
+  const sections = [biography ? `**Biography:**\n${biography}` : '**Biography:** not stored'];
+  if (publicBiography && publicBiography !== biography) {
+    sections.push(`**Public biography:**\n${publicBiography}`);
+  }
+  const characteristics = CHARACTERISTIC_LABELS.flatMap(([key, label]) => {
+    const value = actor.characteristics?.[key];
+    return value ? [`**${label}:** ${value}`] : [];
+  });
+  if (characteristics.length > 0) {
+    sections.push(characteristics.join('\n'));
+  }
+  return sections.join('\n\n');
 }
 
 /**
@@ -153,7 +183,7 @@ ${progression}
 **Ability Scores:**
 ${abilities}
 
-**Description:** ${(actor as { description?: string }).description || 'No description available.'}`,
+${formatBiography(actor)}`,
         },
       ],
     };

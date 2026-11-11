@@ -1876,6 +1876,20 @@ function worldActorToFoundry(a: WorldActor): FoundryActor {
   if (bio) {
     actor.biography = bio;
   }
+  const publicBio = extractString(details, 'biography', 'public');
+  if (publicBio) {
+    actor.publicBiography = publicBio;
+  }
+  const characteristics: NonNullable<FoundryActor['characteristics']> = {};
+  for (const key of ['appearance', 'trait', 'ideal', 'bond', 'flaw'] as const) {
+    const value = extractString(details, key)?.trim();
+    if (value) {
+      characteristics[key] = value;
+    }
+  }
+  if (Object.keys(characteristics).length > 0) {
+    actor.characteristics = characteristics;
+  }
 
   return actor;
 }

@@ -552,6 +552,36 @@ describe('FoundryClient', () => {
       });
     });
 
+    it('reads the stored biography, public biography and characteristics', async () => {
+      client = clientWithActors([
+        {
+          _id: 'actorSergus00001',
+          name: 'Sergus',
+          type: 'character',
+          system: {
+            details: {
+              biography: { value: '<p>Son of Selune.</p>', public: '<p>A cleric.</p>' },
+              appearance: 'Silver hair',
+              trait: 'Calm',
+              ideal: '',
+              bond: 'His wife',
+              flaw: 'Forgets',
+            },
+          },
+          items: [],
+        },
+      ]);
+      const actor = await client.getActor('actorSergus00001');
+      expect(actor.biography).toBe('<p>Son of Selune.</p>');
+      expect(actor.publicBiography).toBe('<p>A cleric.</p>');
+      expect(actor.characteristics).toEqual({
+        appearance: 'Silver hair',
+        trait: 'Calm',
+        bond: 'His wife',
+        flaw: 'Forgets',
+      });
+    });
+
     it('carries NPC CR through searchActors', async () => {
       client = clientWithActors([VEX, GOBLIN]);
       const { actors } = await client.searchActors({ type: 'npc' });
