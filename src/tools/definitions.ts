@@ -64,7 +64,7 @@ export const actorTools = [
   {
     name: 'search_actors',
     description:
-      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, actorId, type, level and current/max HP. Use when: checking whether an actor exists, getting a quick roster with HP, or looking up the actorId that get_actor_details, get_actor_items and the actor write tools need. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details - or its items, features and spells - use get_actor_items.",
+      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, actorId, type, level and current/max HP, and says how many more match when the limit cuts the list short. Use when: checking whether an actor exists, getting a quick roster with HP, or looking up the actorId that get_actor_details, get_actor_items and the actor write tools need. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details - or its items, features and spells - use get_actor_items.",
     inputSchema: {
       type: 'object',
       properties: {

@@ -38,6 +38,12 @@ export async function handleSearchActors(
       )
       .join('\n');
 
+    const hidden = result.total - result.actors.length;
+    const moreNote =
+      hidden > 0
+        ? `\n\n_${hidden} more match — narrow the query or raise the limit to see them._`
+        : '';
+
     return {
       content: [
         {
@@ -47,7 +53,7 @@ export async function handleSearchActors(
 **Type Filter:** ${type || 'All types'}
 **Results:** ${result.actors.length}/${result.total} total
 
-${actorList || 'No actors found matching the criteria.'}
+${actorList || 'No actors found matching the criteria.'}${moreNote}
 
 **Page:** ${result.page} | **Limit:** ${result.limit}`,
         },

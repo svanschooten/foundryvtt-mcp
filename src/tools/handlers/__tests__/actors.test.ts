@@ -71,6 +71,26 @@ describe('handleSearchActors', () => {
     expect(text).toMatch(/\*\*Goblin\*\* `actorGoblin00001`/);
   });
 
+  it('says when more actors match than the limit shows', async () => {
+    const actors: FoundryActor[] = [buildActor({ _id: 'actorAragorn0001', name: 'Aragorn' })];
+    const client = {
+      searchActors: vi.fn().mockResolvedValue({ actors, total: 40, page: 1, limit: 1 }),
+    } as unknown as FoundryClient;
+
+    const text = getText(await handleSearchActors({ limit: 1 }, client));
+
+    expect(text).toMatch(/39 more match/);
+  });
+
+  it('adds no "more match" note when every match is shown', async () => {
+    const actors: FoundryActor[] = [buildActor({ _id: 'actorAragorn0001', name: 'Aragorn' })];
+    const client = {
+      searchActors: vi.fn().mockResolvedValue({ actors, total: 1, page: 1, limit: 10 }),
+    } as unknown as FoundryClient;
+
+    expect(getText(await handleSearchActors({}, client))).not.toMatch(/more match/);
+  });
+
   it('passes through type filter when supplied', async () => {
     const searchResult: ActorSearchResult = { actors: [], total: 0, page: 1, limit: 5 };
     const client = {
