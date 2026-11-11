@@ -264,7 +264,16 @@ export async function routeToolRequest(
       if (!('journalId' in args) || typeof args.journalId !== 'string') {
         throw new Error('Missing required parameter: journalId');
       }
-      return handleGetJournal(args as { journalId: string }, foundryClient);
+      return handleGetJournal(
+        args as {
+          journalId: string;
+          pageId?: string;
+          pageName?: string;
+          offset?: number;
+          maxChars?: number;
+        },
+        foundryClient,
+      );
 
     // Journal mutation tools (WRITE) — Socket.IO modifyDocument protocol
     // (foundryClient); require FOUNDRY_WRITE_ENABLED=true + a GM user.

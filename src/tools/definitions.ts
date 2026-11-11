@@ -787,13 +787,35 @@ export const journalTools = [
   {
     name: 'get_journal',
     description:
-      'Get one journal entry by id with the text of its pages. Page bodies are HTML-stripped and each is truncated to its first 500 characters, marked with a trailing "...", so long pages come back partial. Use when: you have a journalId and need the text of its pages. Do not use when: you only have a title or keyword - run search_journals first.',
+      'Get one journal entry by id with the full text of its pages, in page order, converted from HTML to plain text (headings, lists and tables kept). A journal with several pages starts with a list of its pages and their ids; image, video and PDF pages print their type, source and caption. Pass pageId or pageName to read a single page. Long text is returned in parts of up to maxChars characters (default 20000): the output ends by saying whether more follows and which offset to pass next. Use when: you have a journalId and need the text of its pages. Do not use when: you only have a title or keyword - run search_journals first.',
     inputSchema: {
       type: 'object',
       properties: {
         journalId: {
           type: 'string',
           description: 'The ID of the journal entry to retrieve',
+        },
+        pageId: {
+          type: 'string',
+          description:
+            'Optional: the id of one page to return (ids are listed at the top of the journal)',
+        },
+        pageName: {
+          type: 'string',
+          description:
+            'Optional: the name of one page to return, case-insensitive; a partial name works when it matches only one page. Ignored when pageId is set.',
+        },
+        offset: {
+          type: 'number',
+          description:
+            'Optional: character position to start from, to continue a long text (default 0). Use the offset the previous call said to pass next.',
+          default: 0,
+        },
+        maxChars: {
+          type: 'number',
+          description:
+            'Optional: most characters to return in this call (default 20000, at most 100000)',
+          default: 20000,
         },
       },
       required: ['journalId'],

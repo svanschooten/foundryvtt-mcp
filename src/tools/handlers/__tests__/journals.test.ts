@@ -2,6 +2,7 @@
  * @fileoverview Unit tests for journals handlers — search_journals and get_journal
  */
 
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { FoundryClient } from '../../../foundry/client.js';
 import { handleGetJournal, handleSearchJournals } from '../journals.js';
@@ -13,7 +14,10 @@ interface MockJournal {
     _id: string;
     name: string;
     type: string;
-    text?: { content: string; format: number };
+    text?: { content: string; format: number; markdown?: string };
+    src?: string;
+    image?: Record<string, unknown>;
+    sort?: number;
   }>;
 }
 
@@ -119,7 +123,7 @@ describe('handleGetJournal', () => {
       expect(text).toContain('**Journal: Test Journal**');
       expect(text).toContain('ID: jrnl-1');
       expect(text).toContain('### Introduction');
-      expect(text).toContain('Hello world.');
+      expect(text).toContain('Hello **world**.');
       // HTML tags should have been stripped
       expect(text).not.toContain('<p>');
       expect(text).not.toContain('<b>');
@@ -150,32 +154,212 @@ describe('handleGetJournal', () => {
         /Journal not found: missing/,
       );
     });
+  });
+});
 
-    it('truncates page content longer than 500 chars with ellipsis', async () => {
-      const longText = 'a'.repeat(600);
-      const journal: MockJournal = {
-        _id: 'jrnl-3',
-        name: 'Long',
-        pages: [
-          {
-            _id: 'p-1',
-            name: 'Big Page',
-            type: 'text',
-            text: { content: longText, format: 1 },
-          },
-        ],
-      };
-      const client = {
-        getJournal: vi.fn(() => journal),
-      } as unknown as FoundryClient;
+describe('handleGetJournal — full text and paging', () => {
+  const LONG = `<h2>The Fall of Myth Drannor</h2>${Array.from(
+    { length: 40 },
+    (_, i) => `<p>Paragraph ${i + 1}: the elves &amp; their city fell to the Army of Darkness.</p>`,
+  ).join('')}`;
 
-      const result = await handleGetJournal({ journalId: 'jrnl-3' }, client);
-      const text = getText(result);
+  const LORE: MockJournal = {
+    _id: 'jrnlLore00000001',
+    name: 'Realm Lore',
+    pages: [
+      {
+        _id: 'pageMap000000001',
+        name: 'Map of the Dales',
+        type: 'image',
+        src: 'worlds/divine-fools/maps/dales.webp',
+        image: { caption: 'The Dalelands, 1492 DR' },
+        sort: 300,
+      },
+      {
+        _id: 'pageHistory00001',
+        name: 'History',
+        type: 'text',
+        text: { content: LONG, format: 1 },
+        sort: 100,
+      },
+      {
+        _id: 'pageNotes0000001',
+        name: 'GM Notes',
+        type: 'text',
+        text: { content: '<ul><li><p>Sergus owes the temple a favour.</p></li></ul>', format: 1 },
+        sort: 200,
+      },
+      {
+        _id: 'pageHandout00001',
+        name: 'Handout',
+        type: 'pdf',
+        src: 'worlds/divine-fools/handouts/letter.pdf',
+        sort: 400,
+      },
+    ],
+  };
 
-      expect(text).toContain('### Big Page');
-      expect(text).toContain('...');
-      // The 500-char slice should be present but the full 600-char string should not
-      expect(text).not.toContain('a'.repeat(600));
+  function clientFor(journal: MockJournal | undefined = LORE) {
+    return { getJournal: vi.fn(() => journal) } as unknown as FoundryClient;
+  }
+
+  async function read(args: Record<string, unknown>): Promise<string> {
+    return getText(
+      await handleGetJournal(
+        { journalId: LORE._id, ...args } as { journalId: string },
+        clientFor(),
+      ),
+    );
+  }
+
+  async function failure(args: Record<string, unknown>): Promise<McpError> {
+    const error = await handleGetJournal(
+      { journalId: LORE._id, ...args } as { journalId: string },
+      clientFor(),
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(McpError);
+    return error as McpError;
+  }
+
+  it('returns a page longer than 500 characters whole', async () => {
+    const text = await read({});
+    expect(LONG.length).toBeGreaterThan(2000);
+    expect(text).toContain('Paragraph 1: the elves & their city fell');
+    expect(text).toContain('Paragraph 40: the elves & their city fell');
+    expect(text).not.toContain('...');
+  });
+
+  it('keeps headings and list structure via the HTML-to-text helper', async () => {
+    const text = await read({});
+    expect(text).toContain('## The Fall of Myth Drannor');
+    expect(text).toContain('- Sergus owes the temple a favour.');
+  });
+
+  it('orders pages by their sort value and prints page ids', async () => {
+    const text = await read({});
+    const order = ['### History', '### GM Notes', '### Map of the Dales', '### Handout'].map((h) =>
+      text.indexOf(h),
+    );
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(text).toContain('`pageHistory00001`');
+  });
+
+  it('lists the pages up front when the journal has several', async () => {
+    const text = await read({});
+    expect(text).toMatch(/\*\*Pages \(4\):\*\*/);
+    expect(text).toMatch(/- History `pageHistory00001` \(text\)/);
+    expect(text).toMatch(/- Map of the Dales `pageMap000000001` \(image\)/);
+  });
+
+  it('prints the type, source and caption of non-text pages', async () => {
+    const text = await read({});
+    expect(text).toContain('_image page_ — source: `worlds/divine-fools/maps/dales.webp`');
+    expect(text).toContain('Caption: The Dalelands, 1492 DR');
+    expect(text).toContain('_pdf page_ — source: `worlds/divine-fools/handouts/letter.pdf`');
+  });
+
+  it('falls back to stored markdown when a markdown page has no HTML', async () => {
+    const journal: MockJournal = {
+      _id: 'jrnlMarkdown0001',
+      name: 'Markdown',
+      pages: [
+        {
+          _id: 'pageMarkdown0001',
+          name: 'Notes',
+          type: 'text',
+          text: { content: '', format: 2, markdown: '**Bold** plan' },
+        },
+      ],
+    };
+    const text = getText(await handleGetJournal({ journalId: journal._id }, clientFor(journal)));
+    expect(text).toContain('**Bold** plan');
+  });
+
+  describe('single page', () => {
+    it('returns one page by id', async () => {
+      const text = await read({ pageId: 'pageNotes0000001' });
+      expect(text).toContain('### GM Notes');
+      expect(text).not.toContain('### History');
+      expect(text).not.toContain('**Pages (');
+    });
+
+    it('returns one page by name, case-insensitively', async () => {
+      const text = await read({ pageName: 'gm notes' });
+      expect(text).toContain('### GM Notes');
+      expect(text).not.toContain('### History');
+    });
+
+    it('matches a unique partial page name', async () => {
+      const text = await read({ pageName: 'dales' });
+      expect(text).toContain('### Map of the Dales');
+    });
+
+    it('rejects an unknown page and lists the pages there are', async () => {
+      const error = await failure({ pageName: 'Bestiary' });
+      expect(error.code).toBe(ErrorCode.InvalidParams);
+      expect(error.message).toMatch(/Bestiary/);
+      expect(error.message).toMatch(/History `pageHistory00001`/);
+    });
+
+    it('rejects an ambiguous partial page name', async () => {
+      const error = await failure({ pageName: 'a' });
+      expect(error.code).toBe(ErrorCode.InvalidParams);
+      expect(error.message).toMatch(/matches several pages/);
+    });
+  });
+
+  describe('paging', () => {
+    it('cuts at maxChars and says where the next part starts', async () => {
+      const text = await read({ pageId: 'pageHistory00001', maxChars: 1000 });
+      const next = text.match(/offset: (\d+)/);
+      expect(next).not.toBeNull();
+      expect(text).toMatch(/Showing characters 0–\d+ of \d+/);
+      expect(text).not.toContain('Paragraph 40');
+    });
+
+    it('returns consecutive parts that join back into the whole page', async () => {
+      const whole = await read({ pageId: 'pageHistory00001' });
+      const body = (t: string) => t.slice(t.indexOf('### History'), t.search(/\n\n_(Showing|End)/));
+      const parts: string[] = [];
+      let offset = 0;
+      for (let guard = 0; guard < 20; guard++) {
+        const text = await read({ pageId: 'pageHistory00001', maxChars: 700, offset });
+        parts.push(
+          text.slice(
+            text.indexOf('\n\n', text.indexOf('ID:')) + 2,
+            text.search(/\n\n_(Showing|End)/),
+          ),
+        );
+        const next = text.match(/offset: (\d+)/);
+        if (!next) {
+          break;
+        }
+        offset = Number(next[1]);
+      }
+      expect(parts.length).toBeGreaterThan(2);
+      expect(parts.join('')).toBe(body(whole));
+    });
+
+    it('says when the whole text fits', async () => {
+      const text = await read({ pageId: 'pageNotes0000001' });
+      expect(text).not.toMatch(/offset: \d+/);
+    });
+
+    it('rejects an offset past the end', async () => {
+      const error = await failure({ pageId: 'pageNotes0000001', offset: 99999 });
+      expect(error.code).toBe(ErrorCode.InvalidParams);
+      expect(error.message).toMatch(/past the end/);
+    });
+
+    it.each([
+      ['offset', -1],
+      ['offset', 1.5],
+      ['maxChars', 0],
+      ['maxChars', 'lots'],
+    ])('rejects %s = %s', async (key, value) => {
+      const error = await failure({ [key]: value });
+      expect(error.code).toBe(ErrorCode.InvalidParams);
     });
   });
 });
