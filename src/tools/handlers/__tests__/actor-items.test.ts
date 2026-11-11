@@ -357,6 +357,67 @@ describe('handleGetActorItems', () => {
       expect(text).toContain('A bright streak flashes…');
     });
 
+    describe('dnd5e 3.x stored combat values', () => {
+      const LONGSWORD: WorldItem = {
+        _id: 'weaponLongsw0001',
+        name: 'Longsword +1',
+        type: 'weapon',
+        system: {
+          quantity: 1,
+          equipped: true,
+          proficient: 1,
+          ability: 'str',
+          actionType: 'mwak',
+          attackBonus: '@abilities.str.mod',
+          magicalBonus: 1,
+          properties: ['mgc', 'ver'],
+          damage: { parts: [['1d8 + @mod', 'slashing']], versatile: '1d10 + @mod' },
+        },
+      };
+      const PLATE: WorldItem = {
+        _id: 'equipPlate000001',
+        name: 'Plate Armor +1',
+        type: 'equipment',
+        system: {
+          quantity: 1,
+          equipped: true,
+          proficient: null,
+          type: { value: 'heavy', baseItem: 'plate' },
+          armor: { value: 18, dex: 0, magicalBonus: 1 },
+          strength: 15,
+        },
+      };
+      const SHIELD: WorldItem = {
+        _id: 'equipShield00001',
+        name: 'Shield',
+        type: 'equipment',
+        system: { type: { value: 'shield' }, armor: { value: 2, dex: null, magicalBonus: null } },
+      };
+
+      it('returns attack bonus, magical bonus and proficiency', async () => {
+        const text = await run({ actorId: ACTOR_ID, itemId: LONGSWORD._id }, [LONGSWORD]);
+        expect(text).toMatch(/Attack:\*\* ability str bonus @abilities\.str\.mod/);
+        expect(text).toMatch(/Magical bonus:\*\* \+1/);
+        expect(text).toMatch(/Proficient:\*\* yes/);
+      });
+
+      it('returns armor value, dex cap, magical bonus and strength requirement', async () => {
+        const text = await run({ actorId: ACTOR_ID, itemId: PLATE._id }, [PLATE]);
+        expect(text).toMatch(/Armor:\*\* AC 18, max dex 0, magical bonus \+1/);
+        expect(text).toMatch(/Strength required:\*\* 15/);
+        // null proficiency means "worked out by the system" — nothing stored to show
+        expect(text).not.toMatch(/Proficient/);
+      });
+
+      it('shows armor class and magical bonus in the list', async () => {
+        const text = await run({ actorId: ACTOR_ID }, [LONGSWORD, PLATE, SHIELD]);
+        expect(section(text, '## Weapons')).toMatch(/Longsword \+1.*\+1 magical/);
+        const equipment = section(text, '## Equipment');
+        expect(equipment).toMatch(/Plate Armor \+1.*AC 18.*\+1 magical/);
+        expect(equipment).toMatch(/Shield.*AC 2/);
+      });
+    });
+
     it('says when an item has no stored description', async () => {
       const text = await run({ actorId: ACTOR_ID, itemId: 'spellShield00001' });
       expect(text).toMatch(/Description:\*\* not stored/);

@@ -275,9 +275,13 @@ function describeSave(save: unknown): string | undefined {
   );
 }
 
-function describeAttack(attack: unknown, ability?: string): string | undefined {
+/**
+ * Attack as stored: 4.x `attack {type, ability, bonus, flat}`; 3.x keeps the
+ * ability and bonus on the item (`ability`, `attackBonus`), passed in here.
+ */
+function describeAttack(attack: unknown, ability?: string, legacyBonus?: string) {
   const a = rec(attack);
-  const bonus = str(a?.bonus);
+  const bonus = str(a?.bonus) ?? legacyBonus;
   const type = rec(a?.type);
   return joinParts(
     joinParts(str(type?.value), str(type?.classification)),
@@ -303,6 +307,54 @@ function describeWeight(weight: unknown): string | undefined {
   }
   const value = num(weight);
   return value ? String(value) : undefined;
+}
+
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : String(n);
+}
+
+/** Stored non-zero `magicalBonus` (weapons: `system`, armor: `system.armor`). */
+function magicalBonus(system: Rec): number | undefined {
+  const bonus = num(system.magicalBonus) ?? num(rec(system.armor)?.magicalBonus);
+  return bonus ? bonus : undefined;
+}
+
+/** Stored armor value (AC) when it is set; non-armor equipment stores none or 0. */
+function armorValue(system: Rec): number | undefined {
+  const value = num(rec(system.armor)?.value);
+  return value ? value : undefined;
+}
+
+function describeArmor(system: Rec): string | undefined {
+  const value = armorValue(system);
+  if (value === undefined) {
+    return undefined;
+  }
+  const armor = rec(system.armor);
+  const dex = num(armor?.dex);
+  const bonus = num(armor?.magicalBonus);
+  return [
+    `AC ${value}`,
+    dex !== undefined ? `max dex ${dex}` : undefined,
+    bonus ? `magical bonus ${signed(bonus)}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/**
+ * Stored proficiency override. dnd5e stores `null` when the system works it
+ * out itself, which is a calculated value and so not shown.
+ */
+function describeProficient(value: unknown): string | undefined {
+  if (typeof value === 'boolean') {
+    return value ? 'yes' : 'no';
+  }
+  const n = num(value);
+  if (n === undefined) {
+    return undefined;
+  }
+  return n === 0 ? 'no' : n === 1 ? 'yes' : String(n);
 }
 
 function describePrice(price: unknown): string | undefined {
@@ -399,7 +451,11 @@ export function formatItemSummary(
 
   const quantity = num(sys.quantity);
   const container = str(sys.container);
+  const armor = armorValue(sys);
+  const bonus = magicalBonus(sys);
   parts.push(
+    armor !== undefined ? `AC ${armor}` : undefined,
+    bonus !== undefined ? `${signed(bonus)} magical` : undefined,
     quantity !== undefined ? `qty ${quantity}` : undefined,
     sys.equipped === true ? 'equipped' : undefined,
     describeAttunement(sys),
@@ -487,6 +543,12 @@ export function formatItemDetails(
   if (sys.identified === false) {
     add('Identified', 'no');
   }
+  add('Armor', describeArmor(sys));
+  const strength = num(sys.strength);
+  add('Strength required', strength ? String(strength) : undefined);
+  const bonus = num(sys.magicalBonus);
+  add('Magical bonus', bonus ? signed(bonus) : undefined);
+  add('Proficient', describeProficient(sys.proficient));
   add('Rarity', str(sys.rarity));
   add('Price', describePrice(sys.price));
   add('Weight', describeWeight(sys.weight));
@@ -502,7 +564,7 @@ export function formatItemDetails(
   add('Target', describeTarget(sys.target));
   add('Duration', describeDuration(sys.duration));
   add('Action type', str(sys.actionType));
-  add('Attack', describeAttack(sys.attack, str(sys.ability)));
+  add('Attack', describeAttack(sys.attack, str(sys.ability), scalar(sys.attackBonus)));
   add('Damage', describeDamage(sys.damage));
   const damage = rec(sys.damage);
   add('Versatile', str(damage?.versatile) ?? describeDamagePart(damage?.versatile));
