@@ -77,12 +77,25 @@ function formatBiography(actor: FoundryActor): string {
   if (publicBiography && publicBiography !== biography) {
     sections.push(`**Public biography:**\n${publicBiography}`);
   }
-  const characteristics = CHARACTERISTIC_LABELS.flatMap(([key, label]) => {
+  // One-line values stack under each other; a multi-line value gets its own block.
+  let run: string[] = [];
+  for (const [key, label] of CHARACTERISTIC_LABELS) {
     const value = actor.characteristics?.[key];
-    return value ? [`**${label}:** ${value}`] : [];
-  });
-  if (characteristics.length > 0) {
-    sections.push(characteristics.join('\n'));
+    if (!value) {
+      continue;
+    }
+    if (value.includes('\n')) {
+      if (run.length > 0) {
+        sections.push(run.join('\n'));
+        run = [];
+      }
+      sections.push(`**${label}:**\n${value}`);
+    } else {
+      run.push(`**${label}:** ${value}`);
+    }
+  }
+  if (run.length > 0) {
+    sections.push(run.join('\n'));
   }
   return sections.join('\n\n');
 }
