@@ -369,3 +369,81 @@ describe('handleGetActorDetails — biography', () => {
     expect(text).toContain('**Flaws:** Forgets everything');
   });
 });
+
+describe('handleGetActorDetails — derived (dnd5e calculations)', () => {
+  const RAW = {
+    _id: 'actor-1',
+    name: 'Hero',
+    type: 'character',
+    items: [{ _id: 'classMonk0000001', name: 'Monk', type: 'class', system: { levels: 11 } }],
+    system: {
+      abilities: {
+        str: { value: 9, proficient: 1 },
+        dex: { value: 20, proficient: 1 },
+        wis: { value: 16, proficient: 0 },
+      },
+      skills: {
+        ste: { ability: 'dex', value: 2 },
+        prc: { ability: 'wis', value: 1 },
+        ath: { ability: 'str', value: 0 },
+      },
+    },
+    effects: [
+      {
+        _id: 'effectBless00001',
+        name: 'Bless',
+        changes: [{ key: 'system.bonuses.abilities.save', mode: 2, value: '1d4' }],
+      },
+    ],
+  };
+
+  function client(system = 'dnd5e', raw: unknown = RAW) {
+    return {
+      getActor: vi.fn().mockResolvedValue(buildActor({ abilities: { dex: { value: 20 } } })),
+      getRawActor: vi.fn(() => raw),
+      getWorldInfo: vi.fn().mockResolvedValue({ system }),
+    } as unknown as FoundryClient;
+  }
+
+  async function run(args: Record<string, unknown>, c = client()): Promise<string> {
+    return getText(
+      await handleGetActorDetails({ actorId: 'actor-1', ...args } as { actorId: string }, c),
+    );
+  }
+
+  it('leaves calculations out unless asked', async () => {
+    const c = client();
+    const text = await run({}, c);
+    expect(text).not.toContain('Calculated');
+    expect(c.getRawActor).not.toHaveBeenCalled();
+  });
+
+  it('adds a clearly labelled calculated section', async () => {
+    const text = await run({ derived: true });
+    expect(text).toContain("**Calculated from dnd5e rules (not Foundry's own numbers):**");
+    expect(text).toContain('**Proficiency bonus:** +4 (level 11)');
+    expect(text).toContain('**Ability modifiers:** STR -1, DEX +5, WIS +3');
+    expect(text).toContain('**Saving throws:** STR +3 (proficient), DEX +9 (proficient), WIS +3');
+    expect(text).toContain('- Stealth (DEX) +13, expertise');
+    expect(text).toContain('- Perception (WIS) +7, proficient');
+    expect(text).toContain('- Athletics (STR) -1');
+    expect(text).toContain('**Passive Perception:** 17');
+    expect(text).toContain('Not applied: active effects: Bless');
+  });
+
+  it('keeps the stored ability scores without modifiers', async () => {
+    const text = await run({ derived: true });
+    expect(text).toMatch(/\*\*DEX:\*\* 20$/m);
+  });
+
+  it('says calculations are dnd5e-only in other systems', async () => {
+    const text = await run({ derived: true }, client('pf2e'));
+    expect(text).toContain('only calculated for dnd5e worlds (this world runs pf2e)');
+    expect(text).not.toContain('Proficiency bonus');
+  });
+
+  it('says so when the stored actor data is not available', async () => {
+    const text = await run({ derived: true }, client('dnd5e', null));
+    expect(text).toMatch(/Calculated.*need the Socket\.IO world data/s);
+  });
+});
