@@ -8,6 +8,7 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { io, type Socket } from 'socket.io-client';
 import { z } from 'zod';
+import { htmlToText } from '../utils/html-to-text.js';
 import { logger } from '../utils/logger.js';
 import { actorProgression } from './actor-progression.js';
 import { authenticateFoundry, sessionSocketOptions } from './auth.js';
@@ -186,6 +187,8 @@ export interface SearchItemsParams {
   type?: string;
   rarity?: string;
   limit?: number;
+  /** Also match the query against the item's description text. */
+  searchText?: boolean;
 }
 
 export interface CompendiumSearchParams {
@@ -796,28 +799,25 @@ export class FoundryClient {
 
     if (params.query) {
       const q = params.query.toLowerCase();
-      results = results.filter((i) => i.name.toLowerCase().includes(q));
+      results = results.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          (params.searchText === true && itemDescriptionText(i).toLowerCase().includes(q)),
+      );
     }
     if (params.type) {
       const t = params.type.toLowerCase();
       results = results.filter((i) => i.type.toLowerCase() === t);
     }
+    if (params.rarity) {
+      const r = params.rarity.toLowerCase();
+      results = results.filter((i) => extractString(i.system, 'rarity')?.toLowerCase() === r);
+    }
 
     const total = results.length;
     const limit = params.limit || 10;
     const items = results.slice(0, limit).map((i) => {
-      const item: {
-        _id: string;
-        name: string;
-        type: string;
-        img?: string;
-        description?: string;
-        rarity?: string;
-      } = {
-        _id: i._id,
-        name: i.name,
-        type: i.type,
-      };
+      const item: FoundryItem = { _id: i._id, name: i.name, type: i.type };
       if (i.img) {
         item.img = i.img;
       }
@@ -825,14 +825,69 @@ export class FoundryClient {
       if (desc) {
         item.description = desc;
       }
-      const rar = extractString(i.system, 'rarity');
-      if (rar) {
-        item.rarity = rar;
+      // Stored values only: dnd5e stores '' for no rarity and 0 for no price.
+      const rarity = extractString(i.system, 'rarity');
+      if (rarity) {
+        item.rarity = rarity;
+      }
+      const price = storedPrice(i.system);
+      if (price) {
+        item.price = price;
+      }
+      const folderName = this.folderPath(i.folder);
+      if (folderName) {
+        item.folderName = folderName;
       }
       return item;
     });
 
     return { items, total, page: 1, limit };
+  }
+
+  /**
+   * Returns one world (sidebar) item as stored, with its folder path, or
+   * undefined when no world item has that id. Owned items live on their actor
+   * instead (see {@link getActorItems}).
+   *
+   * @throws when the id is malformed or no world data is loaded (REST/`apiKey`
+   *   mode does not provide it).
+   */
+  getWorldItem(itemId: string): { item: WorldItem; folderName?: string } | undefined {
+    if (!FOUNDRY_ID_PATTERN.test(itemId)) {
+      throw new Error(`Invalid itemId format: ${itemId}`);
+    }
+    if (!this.worldData) {
+      throw new Error(
+        'Not connected — no world data available. World items are read from the Socket.IO world data, which REST API mode (FOUNDRY_API_KEY) does not load.',
+      );
+    }
+    const item = this.worldData.items.find((i) => i._id === itemId);
+    if (!item) {
+      return undefined;
+    }
+    const folderName = this.folderPath(item.folder);
+    return folderName ? { item, folderName } : { item };
+  }
+
+  /** "Parent / Child" path of a folder id, or undefined when there is none. */
+  private folderPath(folderId: unknown): string | undefined {
+    const folders = Array.isArray(this.worldData?.folders) ? this.worldData.folders : [];
+    const names: string[] = [];
+    const seen = new Set<string>();
+    let id = folderId;
+    while (typeof id === 'string' && id !== '' && !seen.has(id)) {
+      seen.add(id);
+      const current = id;
+      const folder = folders.find((f) => f._id === current);
+      if (!folder) {
+        break;
+      }
+      if (typeof folder.name === 'string') {
+        names.unshift(folder.name);
+      }
+      id = folder.folder;
+    }
+    return names.length > 0 ? names.join(' / ') : undefined;
   }
 
   // ==========================================================================
@@ -1730,6 +1785,25 @@ export class FoundryClient {
 // ============================================================================
 // Mapping helpers — WorldData raw documents → display interfaces
 // ============================================================================
+
+/** Plain text of a stored item description, for searching. */
+function itemDescriptionText(item: WorldItem): string {
+  return htmlToText(extractNested(item.system, 'description', 'value'));
+}
+
+/** A stored, non-zero `{ value, denomination }` price, else undefined. */
+function storedPrice(
+  system: Record<string, unknown>,
+): { value: number; denomination: string } | undefined {
+  const price = extractNested(system, 'price');
+  if (!isRecord(price) || typeof price.value !== 'number' || !(price.value > 0)) {
+    return undefined;
+  }
+  return {
+    value: price.value,
+    denomination: typeof price.denomination === 'string' ? price.denomination : '',
+  };
+}
 
 function worldActorToFoundry(a: WorldActor): FoundryActor {
   const sys = a.system || {};

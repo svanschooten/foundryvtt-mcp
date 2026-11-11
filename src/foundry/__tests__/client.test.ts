@@ -560,6 +560,111 @@ describe('FoundryClient', () => {
     });
   });
 
+  describe('world items', () => {
+    const FOLDERS = [
+      { _id: 'folderHomebrew01', name: 'Homebrew', type: 'Item', folder: null },
+      { _id: 'folderFeatures01', name: 'Features', type: 'Item', folder: 'folderHomebrew01' },
+    ];
+    const ITEMS = [
+      {
+        _id: 'itemAuraSelune01',
+        name: 'Aura of Selune',
+        type: 'feat',
+        folder: 'folderFeatures01',
+        system: {
+          description: { value: '<p>You shed <em>moonlight</em> &amp; calm.</p>' },
+          rarity: '',
+          price: { value: 0, denomination: 'gp' },
+        },
+      },
+      {
+        _id: 'itemCloak000001',
+        name: 'Cloak of Stars',
+        type: 'equipment',
+        folder: null,
+        system: { rarity: 'rare', price: { value: 500, denomination: 'gp' } },
+      },
+      {
+        _id: 'itemDagger000001',
+        name: 'Dagger',
+        type: 'weapon',
+        system: { rarity: 'common', price: { value: 2, denomination: 'gp' } },
+      },
+    ];
+
+    function clientWithItems() {
+      const c = new FoundryClient({ baseUrl: 'http://localhost:30000' });
+      Reflect.set(c, 'worldData', { items: ITEMS, folders: FOLDERS });
+      return c;
+    }
+
+    it('returns the folder path, stored rarity and stored price', async () => {
+      client = clientWithItems();
+      const { items } = await client.searchItems({});
+      const aura = items.find((i) => i._id === 'itemAuraSelune01');
+      const cloak = items.find((i) => i._id === 'itemCloak000001');
+      expect(aura?.folderName).toBe('Homebrew / Features');
+      expect(aura?.rarity).toBeUndefined();
+      expect(aura?.price).toBeUndefined();
+      expect(cloak?.folderName).toBeUndefined();
+      expect(cloak?.rarity).toBe('rare');
+      expect(cloak?.price).toEqual({ value: 500, denomination: 'gp' });
+    });
+
+    it('filters by stored rarity, case-insensitively', async () => {
+      client = clientWithItems();
+      const { items, total } = await client.searchItems({ rarity: 'Rare' });
+      expect(items.map((i) => i._id)).toEqual(['itemCloak000001']);
+      expect(total).toBe(1);
+    });
+
+    it('matches description text only when searchText is set', async () => {
+      client = clientWithItems();
+      expect((await client.searchItems({ query: 'moonlight' })).total).toBe(0);
+      const { items } = await client.searchItems({ query: 'moonlight & calm', searchText: true });
+      expect(items.map((i) => i._id)).toEqual(['itemAuraSelune01']);
+    });
+
+    it('still matches names when searchText is set', async () => {
+      client = clientWithItems();
+      const { items } = await client.searchItems({ query: 'dagger', searchText: true });
+      expect(items.map((i) => i._id)).toEqual(['itemDagger000001']);
+    });
+
+    it('getWorldItem returns the raw item with its folder path', () => {
+      client = clientWithItems();
+      const found = client.getWorldItem('itemAuraSelune01');
+      expect(found?.item.system).toEqual(ITEMS[0]?.system);
+      expect(found?.folderName).toBe('Homebrew / Features');
+    });
+
+    it('getWorldItem returns undefined for an unknown id', () => {
+      client = clientWithItems();
+      expect(client.getWorldItem('itemMissing00001')).toBeUndefined();
+    });
+
+    it('getWorldItem rejects a malformed id and a missing world', () => {
+      client = clientWithItems();
+      expect(() => client.getWorldItem('bad id')).toThrow(/Invalid itemId format/);
+      expect(() =>
+        new FoundryClient({ baseUrl: 'http://localhost:30000' }).getWorldItem('itemAuraSelune01'),
+      ).toThrow(/no world data/i);
+    });
+
+    it('survives a folder cycle', async () => {
+      const c = new FoundryClient({ baseUrl: 'http://localhost:30000' });
+      Reflect.set(c, 'worldData', {
+        items: [{ ...ITEMS[0], folder: 'folderLoopA00001' }],
+        folders: [
+          { _id: 'folderLoopA00001', name: 'A', folder: 'folderLoopB00001' },
+          { _id: 'folderLoopB00001', name: 'B', folder: 'folderLoopA00001' },
+        ],
+      });
+      const { items } = await c.searchItems({});
+      expect(items[0]?.folderName).toBe('B / A');
+    });
+  });
+
   describe('dice rolling', () => {
     beforeEach(() => {
       client = new FoundryClient({ baseUrl: 'http://localhost:30000' });

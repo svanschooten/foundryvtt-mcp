@@ -107,6 +107,8 @@ export interface FoundryItem {
   type: string;
   img?: string;
   data?: Record<string, unknown>;
+  /** Sidebar folder path ("Parent / Child"), when the item is in a folder. */
+  folderName?: string;
   // Common item properties
   description?: string;
   rarity?: string;
