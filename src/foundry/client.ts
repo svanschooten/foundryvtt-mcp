@@ -1745,12 +1745,14 @@ function worldActorToFoundry(a: WorldActor): FoundryActor {
     mappedAbilities = {};
     for (const [key, val] of Object.entries(abilitiesRaw)) {
       if (isRecord(val)) {
-        const entry: { value: number; mod: number; save?: number } = {
-          value: typeof val.value === 'number' ? val.value : 10,
-          mod: typeof val.mod === 'number' ? val.mod : 0,
-        };
-        if (typeof val.save === 'number') {
-          entry.save = val.save;
+        // Copy only stored numbers: dnd5e calculates `mod` and `save` in the
+        // browser, and a default (score 10, mod 0) would read as real data.
+        const entry: { value?: number; mod?: number; save?: number } = {};
+        for (const field of ['value', 'mod', 'save'] as const) {
+          const stored = val[field];
+          if (typeof stored === 'number' && Number.isFinite(stored)) {
+            entry[field] = stored;
+          }
         }
         mappedAbilities[key] = entry;
       }

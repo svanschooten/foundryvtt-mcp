@@ -44,6 +44,20 @@ function levelSummary(actor: FoundryActor): string {
 }
 
 /**
+ * "20", or "8 (-1)" when a modifier is stored. dnd5e does not store the
+ * modifier (it is calculated in the browser), so it is never worked out here.
+ */
+function formatAbility(ability: { value?: number; mod?: number }): string {
+  if (ability.value === undefined) {
+    return 'not stored';
+  }
+  if (ability.mod === undefined) {
+    return String(ability.value);
+  }
+  return `${ability.value} (${ability.mod >= 0 ? '+' : ''}${ability.mod})`;
+}
+
+/**
  * Handles actor search requests
  */
 export async function handleSearchActors(
@@ -117,10 +131,7 @@ export async function handleGetActorDetails(
 
     const abilities = actor.abilities
       ? Object.entries(actor.abilities)
-          .map(
-            ([key, ability]: [string, { value: number; mod: number }]) =>
-              `**${key.toUpperCase()}:** ${ability.value} (${ability.mod >= 0 ? '+' : ''}${ability.mod})`,
-          )
+          .map(([key, ability]) => `**${key.toUpperCase()}:** ${formatAbility(ability)}`)
           .join('\n')
       : 'No ability scores available';
 

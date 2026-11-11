@@ -47,11 +47,16 @@ export interface FoundryActor {
     value: number;
   };
   attributes?: Record<string, unknown>;
+  /**
+   * Ability scores as stored. dnd5e stores only the score; the modifier and
+   * save are calculated in the browser, so they are present only when a
+   * source (e.g. the REST module) supplies them.
+   */
   abilities?: Record<
     string,
     {
-      value: number;
-      mod: number;
+      value?: number;
+      mod?: number;
       save?: number;
     }
   >;

@@ -527,6 +527,31 @@ describe('FoundryClient', () => {
       ]);
     });
 
+    it('passes ability scores through without inventing a modifier or score', async () => {
+      // dnd5e stores only the score; `mod` is calculated in the browser.
+      client = clientWithActors([
+        {
+          _id: 'actorScores00001',
+          name: 'Scores',
+          type: 'character',
+          system: {
+            abilities: {
+              dex: { value: 20, proficient: 0 },
+              str: { value: 9, mod: -1 },
+              con: { proficient: 1 },
+            },
+          },
+          items: [],
+        },
+      ]);
+      const actor = await client.getActor('actorScores00001');
+      expect(actor.abilities).toEqual({
+        dex: { value: 20 },
+        str: { value: 9, mod: -1 },
+        con: {},
+      });
+    });
+
     it('carries NPC CR through searchActors', async () => {
       client = clientWithActors([VEX, GOBLIN]);
       const { actors } = await client.searchActors({ type: 'npc' });
