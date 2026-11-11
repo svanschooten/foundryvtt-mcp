@@ -345,6 +345,13 @@ describe('handleGetActorDetails — biography', () => {
     expect(text).not.toContain('Public biography');
   });
 
+  it('puts a multi-line characteristic below its label', async () => {
+    const text = await details({
+      characteristics: { appearance: 'Eyes: Blue\nHeight: 6ft', bond: 'Squadmates' },
+    });
+    expect(text).toContain('**Appearance:**\nEyes: Blue\nHeight: 6ft\n\n**Bonds:** Squadmates');
+  });
+
   it('prints stored appearance, traits, ideals, bonds and flaws', async () => {
     const text = await details({
       characteristics: {
