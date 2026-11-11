@@ -60,13 +60,13 @@ Sections are in order of priority.
 - **Where:** `src/tools/handlers/journals.ts`, `handleGetJournal`: `.slice(0, 500)`, plus the matching note in `src/tools/definitions.ts` (`get_journal` description).
 - **Problem:** Each page is HTML-stripped and cut to 500 characters, with a trailing `...`. The full text is already in `worldData.journal`.
 - **To do:**
-  - [ ] Remove the hard cut and return each page in full.
-  - [ ] Add optional `pageId` / `pageName` arguments to fetch a single page.
-  - [ ] Add optional `offset` and `maxChars` arguments (with a generous default) so very long pages can be read in parts, and say in the output when there is more.
-  - [ ] Use the HTML-to-text helper from 1 instead of deleting all tags.
-  - [ ] Handle non-text pages (image, video, PDF) by printing their type and source instead of an empty body.
-  - [ ] Update the tool description in `definitions.ts`.
-  - [ ] Tests: a page longer than 500 characters comes back whole; paging returns consecutive parts.
+  - [x] Remove the hard cut and return each page in full.
+  - [x] Add optional `pageId` / `pageName` arguments to fetch a single page.
+  - [x] Add optional `offset` and `maxChars` arguments (with a generous default) so very long pages can be read in parts, and say in the output when there is more.
+  - [x] Use the HTML-to-text helper from 1 instead of deleting all tags.
+  - [x] Handle non-text pages (image, video, PDF) by printing their type and source instead of an empty body.
+  - [x] Update the tool description in `definitions.ts`.
+  - [x] Tests: a page longer than 500 characters comes back whole; paging returns consecutive parts.
 
 ## 6. Actor description is always empty
 
