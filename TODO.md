@@ -73,8 +73,8 @@ Sections are in order of priority.
 - **Where:** `handleGetActorDetails` in `src/tools/handlers/actors.ts`.
 - **Problem:** The handler prints `actor.description`, but `worldActorToFoundry` stores the text as `actor.biography`, so it always says "No description available."
 - **To do:**
-  - [ ] Read `biography`, convert its HTML with the helper from 1.
-  - [ ] Fix the tool description in `definitions.ts`, which says no description is returned.
+  - [x] Read `biography`, convert its HTML with the helper from 1.
+  - [x] Fix the tool description in `definitions.ts`, which says no description is returned.
 
 ## Optional: compendium content can't be read
 
