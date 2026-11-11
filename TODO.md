@@ -13,16 +13,16 @@ Sections are in order of priority.
 - **Where:** no tool exists. The data is in `worldData.actors[].items`.
 - **Tested 2026-11-11:** there is no way to see what a character owns. `get_actor_details` returns no items, and `search_items` only searches the world's Items sidebar, not actors. So player features (class and racial features, feats), prepared spells, inventory and custom homebrew items on a character are all invisible. The existing `update_actor_item` and `delete_actor_item` tools need an item id, which nothing returns.
 - **To do:**
-  - [ ] Add `getActorItems(actorId)` to `FoundryClient`.
-  - [ ] Add a read-only `get_actor_items` tool (definition in `definitions.ts`, handler in `src/tools/handlers/`, registered in the router).
-  - [ ] Per item return: id, name, type, and the stored fields that matter at the table: quantity, equipped, attuned, uses (`system.uses.value` / `max` as stored), and for spells the level, school and preparation mode.
-  - [ ] Optional `type` filter (`weapon`, `equipment`, `consumable`, `spell`, `feat`, `class`, `subclass`, `loot`, `tool`, `backpack`, …) and `query` filter on name.
-  - [ ] Group the output by type; spells grouped by spell level.
-  - [ ] Optional `itemId` argument to return one owned item in full: description text, activation, range, target, duration, damage formulas and requirements, all as stored.
-  - [ ] Build a shared HTML-to-text helper for descriptions (headings, lists, line breaks, decoded entities such as `&amp;`). Sections 2, 5 and 6 reuse it.
-  - [ ] Update the `get_actor_details` description, which currently says no tool lists owned-item ids.
-  - [ ] Look at RN0000/foundryvtt-mcp's `getActorItems` / inventory handler (MIT) as a starting point.
-  - [ ] Tests, including a spellcaster fixture and a homebrew feature.
+  - [x] Add `getActorItems(actorId)` to `FoundryClient`.
+  - [x] Add a read-only `get_actor_items` tool (definition in `definitions.ts`, handler in `src/tools/handlers/`, registered in the router).
+  - [x] Per item return: id, name, type, and the stored fields that matter at the table: quantity, equipped, attuned, uses (`system.uses.value` / `max` as stored), and for spells the level, school and preparation mode.
+  - [x] Optional `type` filter (`weapon`, `equipment`, `consumable`, `spell`, `feat`, `class`, `subclass`, `loot`, `tool`, `backpack`, …) and `query` filter on name.
+  - [x] Group the output by type; spells grouped by spell level.
+  - [x] Optional `itemId` argument to return one owned item in full: description text, activation, range, target, duration, damage formulas and requirements, all as stored.
+  - [x] Build a shared HTML-to-text helper for descriptions (headings, lists, line breaks, decoded entities such as `&amp;`). Sections 2, 5 and 6 reuse it.
+  - [x] Update the `get_actor_details` description, which currently says no tool lists owned-item ids.
+  - [x] Look at RN0000/foundryvtt-mcp's `getActorItems` / inventory handler (MIT) as a starting point.
+  - [x] Tests, including a spellcaster fixture and a homebrew feature.
 
 ## 2. World items (sidebar) only show name and type
 
@@ -40,20 +40,20 @@ Sections are in order of priority.
 - **Where:** `handleSearchActors` in `src/tools/handlers/actors.ts`.
 - **Problem:** Needed to use `get_actor_items` (1), which takes an actor id. Claude has to read the `foundry://actors` resource, which only lists the first 100 of the world's 440 actors, to find an actor's id.
 - **To do:**
-  - [ ] Print each actor's `_id` in the search results.
-  - [ ] Update the tool description.
+  - [x] Print each actor's `_id` in the search results.
+  - [x] Update the tool description.
 
 ## 4. Character level is always "Unknown"
 
 - **Where:** `worldActorToFoundry` in `src/foundry/client.ts` reads `system.details.level`.
 - **Problem:** In dnd5e 3.x a character's level is not stored on the character. It's the sum of `system.levels` on the actor's items of type `class`. NPCs use `system.details.cr` instead.
 - **To do:**
-  - [ ] For `character` actors, sum `system.levels` over owned `class` items. This only adds up stored numbers, so it stays within the "no rules" principle. Keep the dnd5e-specific lookup in one small function so it's easy to replace after the upgrade.
-  - [ ] Also return the class breakdown (e.g. "Fighter 5 / Rogue 2") and subclass names (`subclass` items, linked by `system.classIdentifier`).
-  - [ ] For `npc` actors, show CR instead of level.
-  - [ ] Keep `system.details.level` as a fallback for other game systems.
-  - [ ] Show it in both `search_actors` and `get_actor_details`.
-  - [ ] Tests with a multiclass character fixture.
+  - [x] For `character` actors, sum `system.levels` over owned `class` items. This only adds up stored numbers, so it stays within the "no rules" principle. Keep the dnd5e-specific lookup in one small function so it's easy to replace after the upgrade.
+  - [x] Also return the class breakdown (e.g. "Fighter 5 / Rogue 2") and subclass names (`subclass` items, linked by `system.classIdentifier`).
+  - [x] For `npc` actors, show CR instead of level.
+  - [x] Keep `system.details.level` as a fallback for other game systems.
+  - [x] Show it in both `search_actors` and `get_actor_details`.
+  - [x] Tests with a multiclass character fixture.
 
 ## 5. Journals are cut off at 500 characters
 
