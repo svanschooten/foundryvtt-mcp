@@ -145,7 +145,7 @@ Ask your AI assistant things like:
 - `get_item` — one world item in full: description and stored mechanics
 - `get_scene_info` — current scene details
 - `search_journals` — search notes and handouts
-- `get_journal` — retrieve a specific journal entry
+- `get_journal` — a journal entry in full, or one page, read in parts when long
 - `get_users` — list users, roles, and live online status
 - `get_combat_state` — combat state and initiative order
 - `get_chat_messages` — recent chat history
