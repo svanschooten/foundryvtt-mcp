@@ -171,6 +171,8 @@ describe('handleGetJournal — full text and paging', () => {
         _id: 'pageMap000000001',
         name: 'Map of the Dales',
         type: 'image',
+        // Foundry v11 gives every page a text field, empty on image pages
+        text: { content: '', format: 1 },
         src: 'worlds/divine-fools/maps/dales.webp',
         image: { caption: 'The Dalelands, 1492 DR' },
         sort: 300,
@@ -339,6 +341,14 @@ describe('handleGetJournal — full text and paging', () => {
       }
       expect(parts.length).toBeGreaterThan(2);
       expect(parts.join('')).toBe(body(whole));
+    });
+
+    it('lists the pages only on the first part', async () => {
+      const first = await read({ maxChars: 500 });
+      const next = Number(first.match(/offset: (\d+)/)?.[1]);
+      const second = await read({ maxChars: 500, offset: next });
+      expect(first).toContain('**Pages (4):**');
+      expect(second).not.toContain('**Pages (');
     });
 
     it('says when the whole text fits', async () => {

@@ -62,18 +62,31 @@ function pageList(pages: JournalPage[]): string {
   return pages.map((p) => `- ${p.name} \`${p._id}\` (${p.type})`).join('\n');
 }
 
-/** Plain text of one page; non-text pages print their type, source and caption. */
+/** Stored text of a page: its HTML as text, else its stored markdown. */
+function pageText(page: JournalPage): string {
+  const text = page.text as { content?: unknown; markdown?: unknown } | undefined;
+  return (
+    htmlToText(text?.content) || (typeof text?.markdown === 'string' ? text.markdown.trim() : '')
+  );
+}
+
+/**
+ * Plain text of one page. Non-text pages print their type, source and caption
+ * (Foundry v11 gives every page a `text` field, so the type decides, not its
+ * presence), followed by any text they do store.
+ */
 function pageBody(page: JournalPage): string {
-  if (page.type === 'text' || page.text) {
-    const text = page.text as { content?: unknown; markdown?: unknown } | undefined;
-    const body =
-      htmlToText(text?.content) || (typeof text?.markdown === 'string' ? text.markdown.trim() : '');
-    return body || '_(empty page)_';
+  if (page.type === 'text') {
+    return pageText(page) || '_(empty page)_';
   }
   const lines = [`_${page.type} page_${page.src ? ` — source: \`${page.src}\`` : ''}`];
   const caption = page.image?.caption;
   if (typeof caption === 'string' && caption.trim() !== '') {
     lines.push(`Caption: ${caption.trim()}`);
+  }
+  const text = pageText(page);
+  if (text) {
+    lines.push('', text);
   }
   return lines.join('\n');
 }
@@ -174,7 +187,8 @@ export async function handleGetJournal(
 
     const single = pageId !== undefined || pageName !== undefined;
     const shown = single ? [selectPage(pages, pageId, pageName)] : pages;
-    if (!single && pages.length > 1) {
+    // The page list heads the first part only, so continuations stay small.
+    if (!single && pages.length > 1 && offset === 0) {
       header.push('', `**Pages (${pages.length}):**`, pageList(pages));
     }
 
