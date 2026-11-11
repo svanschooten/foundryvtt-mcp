@@ -64,7 +64,7 @@ export const actorTools = [
   {
     name: 'search_actors',
     description:
-      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, actorId, type, level and current/max HP, and says how many more match when the limit cuts the list short. Use when: checking whether an actor exists, getting a quick roster with HP, or looking up the actorId that get_actor_details, get_actor_items and the actor write tools need. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details - or its items, features and spells - use get_actor_items.",
+      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, actorId, type, level with the class breakdown (or CR for NPCs) and current/max HP, and says how many more match when the limit cuts the list short. Use when: checking whether an actor exists, getting a quick roster with HP, or looking up the actorId that get_actor_details, get_actor_items and the actor write tools need. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details - or its items, features and spells - use get_actor_items.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -87,7 +87,7 @@ export const actorTools = [
   {
     name: 'get_actor_details',
     description:
-      'Get details for one actor by id: type, level, current/max HP, AC and ability scores; no biography or description text is returned (the description line always reads "No description available."). Use when: you have an actorId and need its current HP or ability scores - notably as the read-before-write step for update_actor_attributes. Do not use when: you only have a name - run search_actors first; or you need the items, features or spells the actor owns - use get_actor_items.',
+      'Get details for one actor by id: type, level with classes and subclasses (challenge rating for NPCs), current/max HP, AC and ability scores. In dnd5e the level is the sum of the levels stored on the character\'s class items; it reads "not stored" when neither class items nor a stored level exist. Values the game system calculates in the browser (often max HP, AC and ability modifiers) may be missing or stale, since only stored data is read; no biography or description text is returned (the description line always reads "No description available."). Use when: you have an actorId and need its current HP or ability scores - notably as the read-before-write step for update_actor_attributes. Do not use when: you only have a name - run search_actors first; or you need the items, features or spells the actor owns - use get_actor_items.',
     inputSchema: {
       type: 'object',
       properties: {

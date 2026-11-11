@@ -128,7 +128,7 @@ describe('handleSearchActors', () => {
     expect(client.searchActors).toHaveBeenCalledWith({ query: '', limit: 10 });
   });
 
-  it('falls back to "Unknown" when level and hp are missing', async () => {
+  it('says "not stored" when no level is stored, and keeps "Unknown" for missing HP', async () => {
     const actors: FoundryActor[] = [
       buildActor({ name: 'Mystery', level: undefined, hp: undefined }),
     ];
@@ -140,8 +140,42 @@ describe('handleSearchActors', () => {
     const result = await handleSearchActors({ query: 'm' }, client);
     const text = getText(result);
 
-    expect(text).toContain('Level Unknown');
+    expect(text).toContain('Level not stored');
     expect(text).toContain('HP: Unknown/Unknown');
+  });
+
+  it('shows the class breakdown after the level of a multiclass character', async () => {
+    const actors: FoundryActor[] = [
+      buildActor({
+        name: 'Vex',
+        level: 7,
+        classes: [
+          { name: 'Fighter', levels: 5, subclass: 'Battle Master' },
+          { name: 'Rogue', levels: 2 },
+        ],
+      }),
+    ];
+    const client = {
+      searchActors: vi.fn().mockResolvedValue({ actors, total: 1, page: 1, limit: 10 }),
+    } as unknown as FoundryClient;
+
+    const text = getText(await handleSearchActors({}, client));
+
+    expect(text).toContain('Level 7 (Fighter 5 / Rogue 2)');
+  });
+
+  it('shows CR instead of level for an NPC', async () => {
+    const actors: FoundryActor[] = [
+      buildActor({ name: 'Goblin', type: 'npc', level: undefined, cr: 0.25 }),
+    ];
+    const client = {
+      searchActors: vi.fn().mockResolvedValue({ actors, total: 1, page: 1, limit: 10 }),
+    } as unknown as FoundryClient;
+
+    const text = getText(await handleSearchActors({}, client));
+
+    expect(text).toContain('CR 1/4');
+    expect(text).not.toContain('Level');
   });
 
   it('wraps client errors in McpError', async () => {
@@ -171,6 +205,42 @@ describe('handleGetActorDetails', () => {
     expect(text).toContain('**Armor Class:** 15');
     expect(text).toContain('**STR:** 16 (+3)');
     expect(text).toContain('**DEX:** 14 (+2)');
+  });
+
+  it('lists classes with their subclasses for a multiclass character', async () => {
+    const actor = buildActor({
+      name: 'Vex',
+      level: 7,
+      classes: [
+        { name: 'Fighter', levels: 5, subclass: 'Battle Master' },
+        { name: 'Rogue', levels: 2, subclass: 'Thief' },
+      ],
+    });
+    const client = { getActor: vi.fn().mockResolvedValue(actor) } as unknown as FoundryClient;
+
+    const text = getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+
+    expect(text).toContain('**Level:** 7');
+    expect(text).toContain('**Classes:** Fighter 5 (Battle Master) / Rogue 2 (Thief)');
+  });
+
+  it('shows the challenge rating instead of level for an NPC', async () => {
+    const actor = buildActor({ name: 'Ogre', type: 'npc', level: undefined, cr: 2 });
+    const client = { getActor: vi.fn().mockResolvedValue(actor) } as unknown as FoundryClient;
+
+    const text = getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+
+    expect(text).toContain('**Challenge Rating:** 2');
+    expect(text).not.toContain('**Level:**');
+  });
+
+  it('says the level is not stored when it is missing', async () => {
+    const actor = buildActor({ level: undefined });
+    const client = { getActor: vi.fn().mockResolvedValue(actor) } as unknown as FoundryClient;
+
+    const text = getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+
+    expect(text).toContain('**Level:** not stored');
   });
 
   it('throws McpError with InvalidParams when actorId is missing', async () => {

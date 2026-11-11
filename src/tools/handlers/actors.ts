@@ -5,8 +5,43 @@
  */
 
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { formatChallengeRating } from '../../foundry/actor-progression.js';
 import type { FoundryClient } from '../../foundry/client.js';
+import type { FoundryActor } from '../../foundry/types.js';
 import { withToolError } from './utils.js';
+
+/** "Fighter 5 (Battle Master) / Rogue 2"; subclasses only when asked for. */
+function formatClasses(actor: FoundryActor, withSubclass: boolean): string | undefined {
+  if (!actor.classes || actor.classes.length === 0) {
+    return undefined;
+  }
+  return actor.classes
+    .map((c) => {
+      const levels = c.levels !== undefined ? ` ${c.levels}` : '';
+      const subclass = withSubclass && c.subclass ? ` (${c.subclass})` : '';
+      return `${c.name}${levels}${subclass}`;
+    })
+    .join(' / ');
+}
+
+/**
+ * NPCs with a stored CR show it instead of a level (their level is not a thing
+ * in dnd5e); everyone else shows the stored level, with the class breakdown.
+ */
+function showsChallengeRating(actor: FoundryActor): actor is FoundryActor & { cr: number } {
+  return actor.type === 'npc' && actor.cr !== undefined;
+}
+
+function levelSummary(actor: FoundryActor): string {
+  if (showsChallengeRating(actor)) {
+    return `CR ${formatChallengeRating(actor.cr)}`;
+  }
+  if (actor.level === undefined) {
+    return 'Level not stored';
+  }
+  const classes = formatClasses(actor, false);
+  return `Level ${actor.level}${classes ? ` (${classes})` : ''}`;
+}
 
 /**
  * Handles actor search requests
@@ -34,7 +69,7 @@ export async function handleSearchActors(
     const actorList = result.actors
       .map(
         (actor) =>
-          `- **${actor.name}** \`${actor._id}\` (${actor.type}) - Level ${actor.level || 'Unknown'} - HP: ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}`,
+          `- **${actor.name}** \`${actor._id}\` (${actor.type}) - ${levelSummary(actor)} - HP: ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}`,
       )
       .join('\n');
 
@@ -89,13 +124,18 @@ export async function handleGetActorDetails(
           .join('\n')
       : 'No ability scores available';
 
+    const classes = formatClasses(actor, true);
+    const progression = showsChallengeRating(actor)
+      ? `**Challenge Rating:** ${formatChallengeRating(actor.cr)}`
+      : `**Level:** ${actor.level ?? 'not stored'}${classes ? `\n**Classes:** ${classes}` : ''}`;
+
     return {
       content: [
         {
           type: 'text',
           text: `🎭 **Actor Details: ${actor.name}**
 **Type:** ${actor.type}
-**Level:** ${actor.level || 'Unknown'}
+${progression}
 **Hit Points:** ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}
 **Armor Class:** ${actor.ac?.value || 'Unknown'}
 
