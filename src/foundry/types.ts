@@ -63,7 +63,12 @@ export interface FoundryActor {
       proficient?: boolean;
     }
   >;
+  /** Character level as stored: dnd5e sums class-item levels; else `details.level`. */
   level?: number;
+  /** dnd5e class breakdown from owned class/subclass items, highest level first. */
+  classes?: Array<{ name: string; levels?: number; subclass?: string }>;
+  /** Challenge rating as stored (`details.cr`), for NPCs. */
+  cr?: number;
   experience?: {
     value: number;
     max: number;

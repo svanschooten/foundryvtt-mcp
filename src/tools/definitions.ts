@@ -64,7 +64,7 @@ export const actorTools = [
   {
     name: 'search_actors',
     description:
-      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, type, level and current/max HP. Use when: checking whether an actor exists, or getting a quick roster with HP. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details; or you need the actorId itself, which this tool does not print - read the foundry://actors resource, whose JSON lists up to the first 100 actors with their _id (not exhaustive in larger worlds).",
+      "Search actors (player characters, NPCs) by name, optionally filtered by type. Returns a summary line per match: name, actorId, type, level with the class breakdown (or CR for NPCs) and current/max HP, and says how many more match when the limit cuts the list short. Use when: checking whether an actor exists, getting a quick roster with HP, or looking up the actorId that get_actor_details, get_actor_items and the actor write tools need. Do not use when: you already have the actorId and want that actor's ability scores - use get_actor_details - or its items, features and spells - use get_actor_items.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -87,13 +87,42 @@ export const actorTools = [
   {
     name: 'get_actor_details',
     description:
-      'Get details for one actor by id: type, level, current/max HP, AC and ability scores; no biography or description text is returned (the description line always reads "No description available."). Use when: you have an actorId and need its current HP or ability scores - notably as the read-before-write step for update_actor_attributes. Do not use when: you only have a name - run search_actors first; or you need the ids of items the actor owns, which this tool does not return (no tool in this server lists owned-item ids - ask the user for the itemId).',
+      'Get details for one actor by id: type, level with classes and subclasses (challenge rating for NPCs), current/max HP, AC and ability scores. In dnd5e the level is the sum of the levels stored on the character\'s class items; it reads "not stored" when neither class items nor a stored level exist. Values the game system calculates in the browser (often max HP, AC and ability modifiers) may be missing or stale, since only stored data is read; no biography or description text is returned (the description line always reads "No description available."). Use when: you have an actorId and need its current HP or ability scores - notably as the read-before-write step for update_actor_attributes. Do not use when: you only have a name - run search_actors first; or you need the items, features or spells the actor owns - use get_actor_items.',
     inputSchema: {
       type: 'object',
       properties: {
         actorId: {
           type: 'string',
           description: 'The ID of the actor to retrieve',
+        },
+      },
+      required: ['actorId'],
+    },
+  },
+  {
+    name: 'get_actor_items',
+    description:
+      "List the items an actor owns - class and subclass items, features and feats, spells, weapons, equipment, consumables and other inventory, including homebrew - or read one owned item in full. Read-only. The list is grouped by item type (spells by spell level) and prints each item's id with the stored fields that matter at the table: quantity, equipped, attunement, armor class, magical bonus, limited uses, recharge, and for spells the school, preparation and ritual/concentration; class items show their levels. With itemId it returns that one item's stored detail: description as text, activation, range, target, duration, attack and damage formulas, armor, save, requirements, components and source. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Get the actorId from search_actors. Use when: you need to know what a character can do or carries, read the text of a feature or spell on a character, or get the itemId that update_actor_item / delete_actor_item need. Do not use when: searching the world's Items sidebar (use search_items) or compendium packs (use search_compendium).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        actorId: {
+          type: 'string',
+          description: 'The ID of the actor whose items to read',
+        },
+        type: {
+          type: 'string',
+          description:
+            'Optional item type filter, case-insensitive; comma-separate several (e.g. "spell" or "weapon,equipment"). dnd5e types: class, subclass, background, race, feat, spell, weapon, equipment, consumable, tool, container, loot.',
+        },
+        query: {
+          type: 'string',
+          description: 'Optional filter: only items whose name contains this text',
+        },
+        itemId: {
+          type: 'string',
+          description:
+            'Optional: the id of one owned item to return in full instead of the list. type and query are ignored when this is set.',
         },
       },
       required: ['actorId'],
@@ -279,7 +308,7 @@ export const itemMutationTools = [
   {
     name: 'update_actor_item',
     description:
-      "Apply a JSON merge patch to an item's system data on an actor: nested paths such as activities.{id}.consumption.targets are supported, values are absolute (arrays replace, null deletes). Use when: changing fields on an item the actor already owns, given actorId + itemId. Do not use when: adding a new item (create_actor_item) or removing one (delete_actor_item). Canonical target: D&D 5e v4+ activity schema. " +
+      "Apply a JSON merge patch to an item's system data on an actor: nested paths such as activities.{id}.consumption.targets are supported, values are absolute (arrays replace, null deletes). Use when: changing fields on an item the actor already owns, given actorId + itemId (get_actor_items lists owned item ids and their current stored values). Do not use when: adding a new item (create_actor_item) or removing one (delete_actor_item). Canonical target: D&D 5e v4+ activity schema. " +
       WRITE_GATE,
     inputSchema: {
       type: 'object',
@@ -304,7 +333,7 @@ export const itemMutationTools = [
   {
     name: 'delete_actor_item',
     description:
-      "Permanently remove an item owned by an actor. Use when: the user explicitly asks to delete or discard a specific owned item, and has given you the itemId - no tool in this server lists owned-item ids, so never guess one. Do not use when: only the item's data needs to change - use update_actor_item. In a replacement or migration flow, run create_actor_item first and this second: the two calls are not atomic, and failing after the delete loses the item. Echo the actorId and itemId back to the user and get their confirmation before calling. " +
+      "Permanently remove an item owned by an actor. Use when: the user explicitly asks to delete or discard a specific owned item - look up its itemId with get_actor_items, never guess one. Do not use when: only the item's data needs to change - use update_actor_item. In a replacement or migration flow, run create_actor_item first and this second: the two calls are not atomic, and failing after the delete loses the item. Echo the actorId and itemId back to the user and get their confirmation before calling. " +
       CONFIRM_FIRST +
       ' ' +
       WRITE_GATE,
@@ -809,7 +838,7 @@ export const worldTools = [
   {
     name: 'search_world',
     description:
-      'Search across all collections (actors, items, scenes, journals) by name, grouped by collection. Use when: you do not know which collection holds what you are looking for. Do not use when: you already know the collection - use search_actors, search_items, or search_journals. Of those, only search_journals prints document ids; for actor and item ids read the foundry://actors and foundry://items resources, each of which lists up to the first 100 documents (not exhaustive in larger worlds).',
+      'Search across all collections (actors, items, scenes, journals) by name, grouped by collection. Use when: you do not know which collection holds what you are looking for. Do not use when: you already know the collection - use search_actors, search_items, or search_journals. This tool prints no ids: use search_actors for actor ids and search_journals for journal ids; for item ids read the foundry://items resource, which lists up to the first 100 items (not exhaustive in larger worlds).',
     inputSchema: {
       type: 'object',
       properties: {

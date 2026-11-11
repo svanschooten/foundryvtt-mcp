@@ -138,8 +138,9 @@ Ask your AI assistant things like:
 
 ### Data Access
 
-- `search_actors` — find characters, NPCs, monsters
+- `search_actors` — find characters, NPCs, monsters (with their ids)
 - `get_actor_details` — detailed character information
+- `get_actor_items` — an actor's owned items, features and spells (with ids), or one item in full
 - `search_items` — find equipment, spells, consumables
 - `get_scene_info` — current scene details
 - `search_journals` — search notes and handouts
