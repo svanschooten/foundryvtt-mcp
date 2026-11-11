@@ -33,6 +33,16 @@ describe('htmlToText', () => {
     expect(htmlToText('<ul><li>One</li><li>Two</li></ul>')).toBe('- One\n- Two');
   });
 
+  it('keeps a paragraph inside a list item on the bullet line (Foundry editor output)', () => {
+    expect(htmlToText('<ul><li><p>One</p></li><li><p>Two</p></li></ul><p>After</p>')).toBe(
+      '- One\n- Two\n\nAfter',
+    );
+  });
+
+  it('keeps a bare < or > that is not part of a tag', () => {
+    expect(htmlToText('<p>3 < 5 and 7 > 2</p>')).toBe('3 < 5 and 7 > 2');
+  });
+
   it('keeps bold text as markdown bold', () => {
     expect(htmlToText('<p><strong>Cost.</strong> 1 action</p>')).toBe('**Cost.** 1 action');
   });
@@ -70,6 +80,13 @@ describe('htmlToText', () => {
 
   it('keeps the target of a content link without a label', () => {
     expect(htmlToText('@UUID[Actor.abc123]')).toBe('Actor.abc123');
+  });
+
+  it('uses the name of a legacy name-based link without a label', () => {
+    expect(htmlToText('Cast @Compendium[dnd5e.spells.Fireball].')).toBe('Cast Fireball.');
+    expect(htmlToText('@Compendium[dnd5e.spells.Item.abcdefgh12345678]')).toBe(
+      'dnd5e.spells.Item.abcdefgh12345678',
+    );
   });
 
   it('replaces inline rolls with their formula or label', () => {

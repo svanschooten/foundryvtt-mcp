@@ -61,10 +61,27 @@ function replaceEnrichers(text: string): string {
         (label ?? formula).trim(),
       )
       // Content links: @UUID[...]{Label}, @Compendium[...]{Label}, @Check[...]
-      .replace(/@[A-Za-z]+\[([^\]]*)\](?:\{([^}]*)\})?/g, (_m, target, label) =>
-        (label ?? target).trim(),
+      .replace(
+        /@([A-Za-z]+)\[([^\]]*)\](?:\{([^}]*)\})?/g,
+        (_m, kind: string, target: string, label?: string) =>
+          (label ?? unlabelledLinkText(kind, target)).trim(),
       )
   );
+}
+
+/**
+ * Text for a content link without a `{Label}`. Legacy `@Compendium[pack.Name]`
+ * links end in the document's name, so print that; an id-based target cannot
+ * be resolved here and is kept whole, since it is the only lookup key.
+ */
+function unlabelledLinkText(kind: string, target: string): string {
+  if (kind.toLowerCase() === 'compendium') {
+    const last = target.slice(target.lastIndexOf('.') + 1);
+    if (last !== '' && !/^[a-zA-Z0-9]{16}$/.test(last)) {
+      return last;
+    }
+  }
+  return target;
 }
 
 /**
@@ -81,6 +98,9 @@ export function htmlToText(html: unknown): string {
     .replace(/<!--[\s\S]*?-->/g, '')
     // Source newlines are not meaningful in HTML; structure comes from tags.
     .replace(/\s*\n\s*/g, ' ')
+    // Foundry's editor wraps list-item text in <p>; keep it on the bullet line.
+    .replace(/(<li\b[^>]*>)\s*<p\b[^>]*>/gi, '$1')
+    .replace(/<\/p>\s*(?=<\/li>)/gi, '')
     .replace(/<h([1-6])\b[^>]*>/gi, (_m, level: string) => `\n\n${'#'.repeat(Number(level))} `)
     .replace(/<\/h[1-6]>/gi, '\n\n')
     .replace(/<br\s*\/?>/gi, '\n')
@@ -91,7 +111,8 @@ export function htmlToText(html: unknown): string {
     .replace(/<\/t[dh]>\s*(?=<t[dh]\b)/gi, ' | ')
     .replace(/<\/?(strong|b)\b[^>]*>/gi, '**')
     .replace(/<hr\s*\/?>/gi, '\n\n')
-    .replace(/<[^>]+>/g, '');
+    // Only tag-shaped text: a bare "3 < 5" in stored text is not a tag.
+    .replace(/<\/?[a-z][^>]*>/gi, '');
 
   text = decodeEntities(replaceEnrichers(text));
 
