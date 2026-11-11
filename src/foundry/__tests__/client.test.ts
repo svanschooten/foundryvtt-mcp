@@ -428,6 +428,52 @@ describe('FoundryClient', () => {
       client = new FoundryClient({ baseUrl: 'http://localhost:30000' });
       expect(client.getWorldSummary()).toEqual({});
     });
+
+    it('should refuse getActorItems when no worldData', () => {
+      client = new FoundryClient({ baseUrl: 'http://localhost:30000' });
+      expect(() => client.getActorItems('actorAAAAAAAAAAA')).toThrow(/no world data/i);
+    });
+  });
+
+  describe('getActorItems', () => {
+    const OWNED = [
+      { _id: 'itemSword0000001', name: 'Sword', type: 'weapon', system: { quantity: 1 } },
+      { _id: 'itemSpell0000001', name: 'Shield', type: 'spell', system: { level: 1 } },
+    ];
+
+    function clientWithActors(actors: unknown[]) {
+      const c = new FoundryClient({ baseUrl: 'http://localhost:30000' });
+      Reflect.set(c, 'worldData', { actors });
+      return c;
+    }
+
+    it('returns the actor and its raw owned items', () => {
+      client = clientWithActors([
+        { _id: 'actorAAAAAAAAAAA', name: 'Elara', type: 'character', system: {}, items: OWNED },
+      ]);
+      const result = client.getActorItems('actorAAAAAAAAAAA');
+      expect(result.actor).toEqual({ _id: 'actorAAAAAAAAAAA', name: 'Elara', type: 'character' });
+      expect(result.items).toEqual(OWNED);
+    });
+
+    it('returns an empty list when the actor has no items array', () => {
+      client = clientWithActors([
+        { _id: 'actorAAAAAAAAAAA', name: 'Elara', type: 'character', system: {} },
+      ]);
+      expect(client.getActorItems('actorAAAAAAAAAAA').items).toEqual([]);
+    });
+
+    it('throws for an unknown actor', () => {
+      client = clientWithActors([]);
+      expect(() => client.getActorItems('actorBBBBBBBBBBB')).toThrow(
+        'Actor not found: actorBBBBBBBBBBB',
+      );
+    });
+
+    it('rejects a malformed actor id', () => {
+      client = clientWithActors([]);
+      expect(() => client.getActorItems('bad id')).toThrow(/Invalid actorId format/);
+    });
   });
 
   describe('dice rolling', () => {

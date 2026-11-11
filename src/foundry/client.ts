@@ -675,6 +675,38 @@ export class FoundryClient {
   }
 
   /**
+   * Returns the items an actor owns, as stored: features, spells, inventory,
+   * classes. Every actor's embedded items arrive with the Socket.IO world data
+   * (`actor.items`) and are kept current by document broadcasts, so this is a
+   * cache read. Items are returned raw, with the game-system-specific `system`
+   * payload; formatting is the caller's job.
+   *
+   * @throws when the id is malformed, the actor is unknown, or no world data is
+   *   loaded (REST/`apiKey` mode does not provide it).
+   */
+  getActorItems(actorId: string): {
+    actor: { _id: string; name: string; type: string };
+    items: WorldItem[];
+  } {
+    if (!FOUNDRY_ID_PATTERN.test(actorId)) {
+      throw new Error(`Invalid actorId format: ${actorId}`);
+    }
+    if (!this.worldData) {
+      throw new Error(
+        'Not connected — no world data available. Owned items are read from the Socket.IO world data, which REST API mode (FOUNDRY_API_KEY) does not load.',
+      );
+    }
+    const actor = this.worldData.actors.find((a) => a._id === actorId);
+    if (!actor) {
+      throw new Error(`Actor not found: ${actorId}`);
+    }
+    return {
+      actor: { _id: actor._id, name: actor.name, type: actor.type },
+      items: actor.items ?? [],
+    };
+  }
+
+  /**
    * Returns the raw WorldActor with the full system data (game-system specific).
    */
   getRawActor(actorId: string): WorldActor | undefined {
