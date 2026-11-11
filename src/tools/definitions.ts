@@ -99,6 +99,35 @@ export const actorTools = [
       required: ['actorId'],
     },
   },
+  {
+    name: 'get_actor_items',
+    description:
+      "List the items an actor owns - class and subclass items, features and feats, spells, weapons, equipment, consumables and other inventory, including homebrew - or read one owned item in full. Read-only. The list is grouped by item type (spells by spell level) and prints each item's id with the stored fields that matter at the table: quantity, equipped, attunement, limited uses, recharge, and for spells the school, preparation and ritual/concentration; class items show their levels. With itemId it returns that one item's stored detail: description as text, activation, range, target, duration, damage formulas, save, requirements, components and source. Values are shown as stored; values the game system calculates (ability modifiers, attack bonus, save DC) are not included, and formulas such as '1d4 + @mod' are printed unevaluated. Use when: you need to know what a character can do or carries, read the text of a feature or spell on a character, or get the itemId that update_actor_item / delete_actor_item need. Do not use when: searching the world's Items sidebar (use search_items) or compendium packs (use search_compendium).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        actorId: {
+          type: 'string',
+          description: 'The ID of the actor whose items to read',
+        },
+        type: {
+          type: 'string',
+          description:
+            'Optional item type filter, case-insensitive; comma-separate several (e.g. "spell" or "weapon,equipment"). dnd5e types: class, subclass, background, race, feat, spell, weapon, equipment, consumable, tool, container, loot.',
+        },
+        query: {
+          type: 'string',
+          description: 'Optional filter: only items whose name contains this text',
+        },
+        itemId: {
+          type: 'string',
+          description:
+            'Optional: the id of one owned item to return in full instead of the list. type and query are ignored when this is set.',
+        },
+      },
+      required: ['actorId'],
+    },
+  },
 ];
 
 /**
