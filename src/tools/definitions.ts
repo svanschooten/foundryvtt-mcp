@@ -87,13 +87,19 @@ export const actorTools = [
   {
     name: 'get_actor_details',
     description:
-      'Get details for one actor by id: type, level with classes and subclasses (challenge rating for NPCs), current/max HP, AC and ability scores (with a modifier only when one is stored - dnd5e calculates modifiers in the browser and does not store them, so none are shown there). In dnd5e the level is the sum of the levels stored on the character\'s class items; it reads "not stored" when neither class items nor a stored level exist. Values the game system calculates in the browser (often max HP and AC) may be missing or stale, since only stored data is read. Also returns the stored biography as text (and the public biography when it differs) and, when set, appearance, personality traits, ideals, bonds and flaws. Use when: you have an actorId and need its current HP, ability scores or biography - notably as the read-before-write step for update_actor_attributes. Do not use when: you only have a name - run search_actors first; or you need the items, features or spells the actor owns - use get_actor_items.',
+      'Get details for one actor by id: type, level with classes and subclasses (challenge rating for NPCs), current/max HP, AC and ability scores (with a modifier only when one is stored - dnd5e calculates modifiers in the browser and does not store them, so none are shown there unless derived is set). In dnd5e the level is the sum of the levels stored on the character\'s class items; it reads "not stored" when neither class items nor a stored level exist. Values the game system calculates in the browser (often max HP and AC) may be missing or stale, since only stored data is read. Also returns the stored biography as text (and the public biography when it differs) and, when set, appearance, personality traits, ideals, bonds and flaws. With derived: true (dnd5e worlds only) it adds a separately labelled section calculated from dnd5e rules: ability modifiers, proficiency bonus, saving throws, skills and passive Perception; active effects and formula bonuses are not applied and are listed by name, so these can differ from the character sheet. Use when: you have an actorId and need its current HP, ability scores, modifiers, saves, skills or biography - notably as the read-before-write step for update_actor_attributes. Do not use when: you only have a name - run search_actors first; or you need the items, features or spells the actor owns - use get_actor_items.',
     inputSchema: {
       type: 'object',
       properties: {
         actorId: {
           type: 'string',
           description: 'The ID of the actor to retrieve',
+        },
+        derived: {
+          type: 'boolean',
+          description:
+            'Optional (dnd5e only): also calculate ability modifiers, proficiency bonus, saves, skills and passive Perception from the stored data (default false)',
+          default: false,
         },
       },
       required: ['actorId'],

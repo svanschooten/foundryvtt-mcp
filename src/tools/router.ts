@@ -102,7 +102,7 @@ export async function routeToolRequest(
       if (!('actorId' in args) || typeof args.actorId !== 'string') {
         throw new Error('Missing required parameter: actorId');
       }
-      return handleGetActorDetails(args as { actorId: string }, foundryClient);
+      return handleGetActorDetails(args as { actorId: string; derived?: boolean }, foundryClient);
     case 'get_actor_items':
       if (!('actorId' in args) || typeof args.actorId !== 'string') {
         throw new Error('Missing required parameter: actorId');

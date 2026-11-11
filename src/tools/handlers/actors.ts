@@ -7,6 +7,7 @@
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { formatChallengeRating } from '../../foundry/actor-progression.js';
 import type { FoundryClient } from '../../foundry/client.js';
+import { type DerivedStats, dnd5eDerivedStats } from '../../foundry/dnd5e-derived.js';
 import type { FoundryActor } from '../../foundry/types.js';
 import { htmlToText } from '../../utils/html-to-text.js';
 import { withToolError } from './utils.js';
@@ -56,6 +57,69 @@ function formatAbility(ability: { value?: number; mod?: number }): string {
     return String(ability.value);
   }
   return `${ability.value} (${ability.mod >= 0 ? '+' : ''}${ability.mod})`;
+}
+
+const DERIVED_HEADING = "**Calculated from dnd5e rules (not Foundry's own numbers):**";
+
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : String(n);
+}
+
+const PROFICIENCY_LABELS: ReadonlyMap<number, string> = new Map([
+  [0.5, 'half proficiency'],
+  [1, 'proficient'],
+  [2, 'expertise'],
+]);
+
+function formatDerivedStats(stats: DerivedStats): string {
+  const lines = [DERIVED_HEADING];
+  if (stats.proficiency) {
+    lines.push(
+      `**Proficiency bonus:** ${signed(stats.proficiency.bonus)} (${stats.proficiency.source})`,
+    );
+  }
+  if (stats.abilities.length > 0) {
+    lines.push(
+      `**Ability modifiers:** ${stats.abilities.map((a) => `${a.label} ${signed(a.mod)}`).join(', ')}`,
+    );
+  }
+  const saves = stats.abilities.filter((a) => a.save !== undefined);
+  if (saves.length > 0) {
+    lines.push(
+      `**Saving throws:** ${saves
+        .map((a) => `${a.label} ${signed(a.save ?? 0)}${a.saveProficient ? ' (proficient)' : ''}`)
+        .join(', ')}`,
+    );
+  }
+  if (stats.skills.length > 0) {
+    lines.push(
+      '**Skills:**',
+      ...stats.skills.map((s) => {
+        const level = PROFICIENCY_LABELS.get(s.proficiency);
+        return `- ${s.label} (${s.ability.toUpperCase()}) ${signed(s.total)}${level ? `, ${level}` : ''}`;
+      }),
+    );
+  }
+  if (stats.passivePerception !== undefined) {
+    lines.push(`**Passive Perception:** ${stats.passivePerception}`);
+  }
+  if (stats.notApplied.length > 0) {
+    lines.push(`_Not applied: ${stats.notApplied.join('; ')}._`);
+  }
+  return lines.join('\n');
+}
+
+/** The optional calculated section; dnd5e only, from the stored (raw) actor. */
+async function formatDerived(actorId: string, foundryClient: FoundryClient): Promise<string> {
+  const world = await foundryClient.getWorldInfo();
+  if (world.system !== 'dnd5e') {
+    return `${DERIVED_HEADING}\n_Derived stats are only calculated for dnd5e worlds (this world runs ${world.system})._`;
+  }
+  const raw = foundryClient.getRawActor(actorId);
+  if (!raw) {
+    return `${DERIVED_HEADING}\n_Not available: the calculations need the Socket.IO world data, which REST API mode (FOUNDRY_API_KEY) does not load._`;
+  }
+  return formatDerivedStats(dnd5eDerivedStats(raw));
 }
 
 const CHARACTERISTIC_LABELS = [
@@ -160,10 +224,12 @@ ${actorList || 'No actors found matching the criteria.'}${moreNote}
 export async function handleGetActorDetails(
   args: {
     actorId: string;
+    derived?: boolean;
   },
   foundryClient: FoundryClient,
 ) {
   const { actorId } = args;
+  const derived = args.derived === true;
 
   if (!actorId || typeof actorId !== 'string') {
     throw new McpError(ErrorCode.InvalidParams, 'Actor ID is required and must be a string');
@@ -195,7 +261,7 @@ ${progression}
 
 **Ability Scores:**
 ${abilities}
-
+${derived ? `\n${await formatDerived(actorId, foundryClient)}\n` : ''}
 ${formatBiography(actor)}`,
         },
       ],
