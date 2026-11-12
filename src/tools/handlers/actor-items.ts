@@ -33,14 +33,38 @@ const TYPE_HEADINGS: ReadonlyArray<readonly [string, string]> = [
 const TYPE_RANK = new Map(TYPE_HEADINGS.map(([type], index) => [type, index]));
 const HEADING = new Map(TYPE_HEADINGS);
 
+/** Items listed when no limit is given; enough for most characters. */
+const DEFAULT_LIMIT = 100;
+
 function byName(a: WorldItem, b: WorldItem): number {
   return a.name.localeCompare(b.name);
+}
+
+/** container/backpack share a heading, so they share a group too. */
+function groupKey(item: WorldItem): string {
+  return item.type === 'backpack' ? 'container' : item.type;
 }
 
 function compareTypes(a: string, b: string): number {
   const ra = TYPE_RANK.get(a) ?? Number.POSITIVE_INFINITY;
   const rb = TYPE_RANK.get(b) ?? Number.POSITIVE_INFINITY;
   return ra !== rb ? ra - rb : a.localeCompare(b);
+}
+
+/** The order items are listed in: by type, spells by level, then by name. */
+function displayOrder(a: WorldItem, b: WorldItem): number {
+  const byType = compareTypes(groupKey(a), groupKey(b));
+  if (byType !== 0) {
+    return byType;
+  }
+  if (a.type === 'spell') {
+    const la = spellLevel(a) ?? Number.POSITIVE_INFINITY;
+    const lb = spellLevel(b) ?? Number.POSITIVE_INFINITY;
+    if (la !== lb) {
+      return la - lb;
+    }
+  }
+  return byName(a, b);
 }
 
 function spellSections(spells: WorldItem[], names: ReadonlyMap<string, string>): string[] {
@@ -65,8 +89,7 @@ function spellSections(spells: WorldItem[], names: ReadonlyMap<string, string>):
 function formatGrouped(items: WorldItem[], names: ReadonlyMap<string, string>): string {
   const groups = new Map<string, WorldItem[]>();
   for (const item of items) {
-    // container/backpack share a heading, so share a group too
-    const key = item.type === 'backpack' ? 'container' : item.type;
+    const key = groupKey(item);
     const group = groups.get(key) ?? [];
     group.push(item);
     groups.set(key, group);
@@ -97,6 +120,7 @@ export async function handleGetActorItems(
     type?: string;
     query?: string;
     itemId?: string;
+    limit?: number;
   },
   foundryClient: FoundryClient,
 ) {
@@ -109,6 +133,10 @@ export async function handleGetActorItems(
     if (value !== undefined && typeof value !== 'string') {
       throw new McpError(ErrorCode.InvalidParams, `${name} must be a string when given`);
     }
+  }
+  const limit = args.limit ?? DEFAULT_LIMIT;
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1) {
+    throw new McpError(ErrorCode.InvalidParams, 'limit must be a whole number of at least 1');
   }
 
   return withToolError('get actor items', async () => {
@@ -148,12 +176,19 @@ export async function handleGetActorItems(
         (!q || i.name.toLowerCase().includes(q)),
     );
 
+    const shown = [...matches].sort(displayOrder).slice(0, limit);
+    const hidden = matches.length - shown.length;
     const filters = [type && `type: ${type}`, q && `name contains "${query?.trim()}"`].filter(
       Boolean,
     );
+    const filtered = filters.length > 0;
+    const counts =
+      hidden > 0 && filtered
+        ? `${shown.length} of ${matches.length} matching items (${items.length} owned)`
+        : `${shown.length} of ${items.length} items`;
     const summary = [
       header,
-      `**Showing:** ${matches.length} of ${items.length} items${filters.length > 0 ? ` (${filters.join(', ')})` : ''}`,
+      `**Showing:** ${counts}${filtered ? ` (${filters.join(', ')})` : ''}`,
     ].join('\n');
 
     if (matches.length === 0) {
@@ -172,7 +207,11 @@ export async function handleGetActorItems(
       content: [
         {
           type: 'text',
-          text: `${summary}\n\n${formatGrouped(matches, names)}\n\n_Values are shown as stored; values the game system calculates (modifiers, attack bonus, save DC) are not included. Pass itemId to read one item in full (description, activation, range, damage)._`,
+          text: `${summary}\n\n${formatGrouped(shown, names)}${
+            hidden > 0
+              ? `\n\n_${hidden} more ${hidden === 1 ? 'item' : 'items'} not shown: raise limit, or narrow with type or query._`
+              : ''
+          }\n\n_Values are shown as stored; values the game system calculates (modifiers, attack bonus, save DC) are not included. Pass itemId to read one item in full (description, activation, range, damage)._`,
         },
       ],
     };

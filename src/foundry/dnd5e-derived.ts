@@ -53,8 +53,12 @@ const SKILLS: ReadonlyArray<readonly [string, string, string]> = [
 /** Remarkable Athlete applies to checks with these abilities. */
 const ATHLETIC_ABILITIES = new Set(['str', 'dex', 'con']);
 
-/** Active-effect keys that would change the values worked out here. */
-const RELEVANT_EFFECT_KEY = /^system\.(abilities|skills|bonuses\.abilities|attributes\.prof)\b/;
+/**
+ * Active-effect keys that would change the values worked out here: the stored
+ * numbers, and the dnd5e flags read below (an effect can grant those too).
+ */
+const RELEVANT_EFFECT_KEY =
+  /^(system\.(abilities|skills|bonuses\.abilities|attributes\.prof)\b|flags\.dnd5e\.(jackOfAllTrades|remarkableAthlete|observantFeat)$)/;
 
 export interface DerivedAbility {
   key: string;

@@ -13,6 +13,7 @@ import { logger } from '../utils/logger.js';
 import { actorProgression } from './actor-progression.js';
 import { authenticateFoundry, sessionSocketOptions } from './auth.js';
 import { evaluateDiceFormula } from './dice-formula.js';
+import { InvalidInputError } from './errors.js';
 import type {
   ActorAttributeUpdateResult,
   ActorItemCreateSource,
@@ -43,6 +44,8 @@ import {
   parseDocumentBroadcast,
   parseUserActivity,
 } from './world-cache.js';
+
+export { InvalidInputError };
 
 /** FoundryVTT document IDs are 16-character alphanumeric strings. */
 const FOUNDRY_ID_PATTERN = /^[a-zA-Z0-9]{16}$/;
@@ -657,7 +660,7 @@ export class FoundryClient {
 
   async getActor(actorId: string): Promise<FoundryActor> {
     if (!FOUNDRY_ID_PATTERN.test(actorId)) {
-      throw new Error(`Invalid actorId format: ${actorId}`);
+      throw new InvalidInputError(`Invalid actorId format: ${actorId}`);
     }
     if (this.config.apiKey) {
       return this.executeWithRetry(async () => {
@@ -672,7 +675,7 @@ export class FoundryClient {
 
     const actor = this.worldData.actors.find((a) => a._id === actorId);
     if (!actor) {
-      throw new Error(`Actor not found: ${actorId}`);
+      throw new InvalidInputError(`Actor not found: ${actorId}`);
     }
 
     return worldActorToFoundry(actor);
@@ -693,7 +696,7 @@ export class FoundryClient {
     items: WorldItem[];
   } {
     if (!FOUNDRY_ID_PATTERN.test(actorId)) {
-      throw new Error(`Invalid actorId format: ${actorId}`);
+      throw new InvalidInputError(`Invalid actorId format: ${actorId}`);
     }
     if (!this.worldData) {
       throw new Error(
@@ -702,7 +705,7 @@ export class FoundryClient {
     }
     const actor = this.worldData.actors.find((a) => a._id === actorId);
     if (!actor) {
-      throw new Error(`Actor not found: ${actorId}`);
+      throw new InvalidInputError(`Actor not found: ${actorId}`);
     }
     return {
       actor: { _id: actor._id, name: actor.name, type: actor.type },
@@ -854,7 +857,7 @@ export class FoundryClient {
    */
   getWorldItem(itemId: string): { item: WorldItem; folderName?: string } | undefined {
     if (!FOUNDRY_ID_PATTERN.test(itemId)) {
-      throw new Error(`Invalid itemId format: ${itemId}`);
+      throw new InvalidInputError(`Invalid itemId format: ${itemId}`);
     }
     if (!this.worldData) {
       throw new Error(
@@ -1844,11 +1847,14 @@ function worldActorToFoundry(a: WorldActor): FoundryActor {
   }
 
   if (hp) {
-    const hpValue = typeof hp.value === 'number' ? hp.value : 0;
-    const hpMax = typeof hp.max === 'number' ? hp.max : 0;
-    const hpObj: { value: number; max: number; temp?: number } = { value: hpValue, max: hpMax };
-    if (typeof hp.temp === 'number') {
-      hpObj.temp = hp.temp;
+    // Stored numbers only: a missing max is "not stored", not 0 (which would
+    // also make the HP write validation reject any healing).
+    const hpObj: NonNullable<FoundryActor['hp']> = {};
+    for (const field of ['value', 'max', 'temp'] as const) {
+      const stored = hp[field];
+      if (typeof stored === 'number' && Number.isFinite(stored)) {
+        hpObj[field] = stored;
+      }
     }
     actor.hp = hpObj;
   }

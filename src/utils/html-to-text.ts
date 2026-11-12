@@ -52,13 +52,47 @@ function decodeEntities(text: string): string {
   });
 }
 
+/** dnd5e roll commands that name a test rather than a formula. */
+const TEST_COMMANDS: ReadonlySet<string> = new Set(['check', 'save', 'skill', 'tool']);
+
+/** `dc=15` → "DC 15"; any other `key=value` → its value (or "key value"). */
+function readableArgs(args: string, keepKeys: boolean): string[] {
+  return args
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => {
+      const at = token.indexOf('=');
+      if (at === -1) {
+        return token;
+      }
+      const key = token.slice(0, at);
+      const value = token.slice(at + 1);
+      if (key.toLowerCase() === 'dc') {
+        return `DC ${value}`;
+      }
+      return keepKeys ? `${key} ${value}` : value;
+    });
+}
+
+/** Text for an unlabelled inline roll: its formula, or "save dex DC 15" for a test. */
+function inlineRollText(command: string | undefined, formula: string): string {
+  if (command && TEST_COMMANDS.has(command.toLowerCase())) {
+    return [command.toLowerCase(), ...readableArgs(formula, false)].join(' ');
+  }
+  return formula.trim();
+}
+
 /** Replaces Foundry enricher syntax with the text a reader would see. */
 function replaceEnrichers(text: string): string {
   return (
     text
-      // Inline rolls: [[/r 1d6]]{label}, [[/damage 2d6 fire]], [[1d4]]
-      .replace(/\[\[(?:\/[a-z]+\s+)?([^\]]*?)\]\](?:\{([^}]*)\})?/gi, (_m, formula, label) =>
-        (label ?? formula).trim(),
+      // Inline rolls: [[/r 1d6]]{label}, [[/damage 2d6[fire]]], [[/save dex dc=15]], [[1d4]].
+      // A formula may hold one level of brackets (dice flavor such as 1d6[fire]).
+      .replace(
+        /\[\[(?:\/([a-z]+)\s*)?((?:[^[\]]|\[[^[\]]*\])*?)\]\](?:\{([^}]*)\})?/gi,
+        (_m, command: string | undefined, formula: string, label?: string) =>
+          label !== undefined ? label.trim() : inlineRollText(command, formula),
       )
       // Content links: @UUID[...]{Label}, @Compendium[...]{Label}, @Check[...],
       // and dnd5e's &Reference[...]{Label}
@@ -88,6 +122,10 @@ function unlabelledLinkText(kind: string, target: string): string {
       return last;
     }
   }
+  // Option-style targets such as @Check[ability=dex dc=15]
+  if (target.includes('=')) {
+    return `${kind} (${readableArgs(target, true).join(', ')})`;
+  }
   return target;
 }
 
@@ -103,6 +141,11 @@ export function htmlToText(html: unknown): string {
   let text = html
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '')
+    // An image's alt text is the only text it carries; keep it.
+    .replace(/<img\b[^>]*?\balt\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>/gi, (_m, dq, sq) => {
+      const alt = (dq ?? sq ?? '').trim();
+      return alt ? `[image: ${alt}]` : '';
+    })
     // Source newlines are not meaningful in HTML; structure comes from tags.
     .replace(/\s*\n\s*/g, ' ')
     // Foundry's editor wraps list-item text in <p>; keep it on the bullet line.

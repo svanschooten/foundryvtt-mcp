@@ -460,10 +460,8 @@ export function formatItemSummary(
     }
     case 'feat': {
       const requirements = str(sys.requirements);
-      parts.push(
-        describeCategory(sys) && `type ${describeCategory(sys)}`,
-        requirements && `requires ${requirements}`,
-      );
+      const category = describeCategory(sys);
+      parts.push(category && `type ${category}`, requirements && `requires ${requirements}`);
       break;
     }
   }
@@ -472,6 +470,7 @@ export function formatItemSummary(
   const container = str(sys.container);
   const armor = armorValue(sys);
   const bonus = magicalBonus(sys);
+  const uses = describeUses(sys);
   parts.push(
     armor !== undefined ? `AC ${armor}` : undefined,
     bonus !== undefined ? `${signed(bonus)} magical` : undefined,
@@ -479,7 +478,7 @@ export function formatItemSummary(
     sys.equipped === true ? 'equipped' : undefined,
     describeAttunement(sys),
     sys.identified === false ? 'unidentified' : undefined,
-    describeUses(sys) && `uses ${describeUses(sys)}`,
+    uses && `uses ${uses}`,
     describeRecharge(sys),
     container && `in ${containerNames.get(container) ?? `container ${container}`}`,
   );
@@ -614,11 +613,15 @@ export function formatItemDetails(
 
   add('Source', describeSource(sys.source));
 
-  const description = htmlToText(rec(sys.description)?.value ?? sys.description);
+  const storedDescription = rec(sys.description)?.value ?? sys.description;
+  const description = htmlToText(storedDescription);
   if (description) {
     lines.push('', '**Description:**', description);
   } else {
-    lines.push('**Description:** not stored');
+    // A stored blank (dnd5e's default '' or an empty <p>) is not "not stored".
+    lines.push(
+      `**Description:** ${typeof storedDescription === 'string' ? 'empty' : 'not stored'}`,
+    );
   }
 
   return lines.join('\n');

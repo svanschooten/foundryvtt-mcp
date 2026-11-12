@@ -30,7 +30,7 @@ vi.mock('../../config/index.js', () => ({
   },
 }));
 
-const { FoundryClient } = await import('../client.js');
+const { FoundryClient, InvalidInputError } = await import('../client.js');
 
 const mockAxios = vi.mocked(axios);
 
@@ -474,6 +474,21 @@ describe('FoundryClient', () => {
       client = clientWithActors([]);
       expect(() => client.getActorItems('bad id')).toThrow(/Invalid actorId format/);
     });
+
+    it("marks a bad or unknown id as the caller's input error", async () => {
+      client = clientWithActors([]);
+      expect(() => client.getActorItems('bad id')).toThrow(InvalidInputError);
+      expect(() => client.getActorItems('actorBBBBBBBBBBB')).toThrow(InvalidInputError);
+      await expect(client.getActor('bad id')).rejects.toThrow(InvalidInputError);
+      await expect(client.getActor('actorBBBBBBBBBBB')).rejects.toThrow(InvalidInputError);
+      Reflect.set(client, 'worldData', { actors: [], items: [] });
+      expect(() => client.getWorldItem('bad id')).toThrow(InvalidInputError);
+    });
+
+    it('does not mark a missing world as an input error', () => {
+      client = new FoundryClient({ baseUrl: 'http://localhost:30000' });
+      expect(() => client.getActorItems('actorAAAAAAAAAAA')).not.toThrow(InvalidInputError);
+    });
   });
 
   describe('actor level, classes and CR (dnd5e stored data)', () => {
@@ -580,6 +595,22 @@ describe('FoundryClient', () => {
         bond: 'His wife',
         flaw: 'Forgets',
       });
+    });
+
+    it('keeps stored zero HP and leaves an unstored max HP out instead of using 0', async () => {
+      // dnd5e 3.x stores hp.max as null for characters: the sheet calculates it.
+      client = clientWithActors([
+        {
+          _id: 'actorDowned00001',
+          name: 'Downed',
+          type: 'character',
+          system: { attributes: { hp: { value: 0, max: null, temp: 0 }, ac: { value: 0 } } },
+          items: [],
+        },
+      ]);
+      const actor = await client.getActor('actorDowned00001');
+      expect(actor.hp).toEqual({ value: 0, temp: 0 });
+      expect(actor.ac).toEqual({ value: 0 });
     });
 
     it('carries NPC CR through searchActors', async () => {

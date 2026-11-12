@@ -46,6 +46,25 @@ function levelSummary(actor: FoundryActor): string {
 }
 
 /**
+ * Stored HP as "20/25". A stored 0 is printed (a downed character is at 0,
+ * not "Unknown"); a part that is not stored says so.
+ */
+function formatHp(hp: FoundryActor['hp']): string {
+  const value = hp?.value;
+  const max = hp?.max;
+  if (value !== undefined && max !== undefined) {
+    return `${value}/${max}`;
+  }
+  if (value !== undefined) {
+    return `${value} (max not stored)`;
+  }
+  if (max !== undefined) {
+    return `not stored (max ${max})`;
+  }
+  return 'not stored';
+}
+
+/**
  * "20", or "8 (-1)" when a modifier is stored. dnd5e does not store the
  * modifier (it is calculated in the browser), so it is never worked out here.
  */
@@ -190,7 +209,7 @@ export async function handleSearchActors(
     const actorList = result.actors
       .map(
         (actor) =>
-          `- **${actor.name}** \`${actor._id}\` (${actor.type}) - ${levelSummary(actor)} - HP: ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}`,
+          `- **${actor.name}** \`${actor._id}\` (${actor.type}) - ${levelSummary(actor)} - HP: ${formatHp(actor.hp)}`,
       )
       .join('\n');
 
@@ -256,8 +275,8 @@ export async function handleGetActorDetails(
           text: `🎭 **Actor Details: ${actor.name}**
 **Type:** ${actor.type}
 ${progression}
-**Hit Points:** ${actor.hp?.value || 'Unknown'}/${actor.hp?.max || 'Unknown'}
-**Armor Class:** ${actor.ac?.value || 'Unknown'}
+**Hit Points:** ${formatHp(actor.hp)}
+**Armor Class:** ${actor.ac?.value ?? 'not stored'}
 
 **Ability Scores:**
 ${abilities}
