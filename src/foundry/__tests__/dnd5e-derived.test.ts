@@ -218,6 +218,30 @@ describe('dnd5eDerivedStats', () => {
     expect(notes).not.toContain('Cloak bonus');
   });
 
+  it('names effects that set the flags these calculations read as not applied', () => {
+    const effect = (name: string, key: string) => ({
+      _id: `effect${name.replace(/\W/g, '').padEnd(10, '0').slice(0, 10)}`,
+      name,
+      changes: [{ key, mode: 5, value: 'true' }],
+    });
+    const stats = dnd5eDerivedStats(
+      character({
+        effects: [
+          effect('Jack of All Trades', 'flags.dnd5e.jackOfAllTrades'),
+          effect('Remarkable Athlete', 'flags.dnd5e.remarkableAthlete'),
+          effect('Observant', 'flags.dnd5e.observantFeat'),
+          effect('Alert', 'flags.dnd5e.initiativeAlert'),
+        ],
+      }),
+    );
+    const notes = stats.notApplied.join(' ');
+    expect(notes).toContain('Jack of All Trades');
+    expect(notes).toContain('Remarkable Athlete');
+    expect(notes).toContain('Observant');
+    // Initiative is not calculated here, so an initiative flag does not matter.
+    expect(notes).not.toContain('Alert');
+  });
+
   it('skips effects of items that need attunement but are not attuned', () => {
     const item = (id: string, name: string, system: Record<string, unknown>): WorldItem => ({
       _id: id,

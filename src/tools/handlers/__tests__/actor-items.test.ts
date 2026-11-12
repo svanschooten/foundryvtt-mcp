@@ -4,7 +4,7 @@
 
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { describe, expect, it, vi } from 'vitest';
-import type { FoundryClient } from '../../../foundry/client.js';
+import { type FoundryClient, InvalidInputError } from '../../../foundry/client.js';
 import type { WorldItem } from '../../../foundry/types.js';
 import { handleGetActorItems } from '../actor-items.js';
 
@@ -210,15 +210,30 @@ describe('handleGetActorItems', () => {
       expect(getActorItems).not.toHaveBeenCalled();
     });
 
-    it('surfaces client errors as McpError', async () => {
+    it('reports an unknown or malformed actor as invalid params, not a server fault', async () => {
       const client = {
         getActorItems: vi.fn(() => {
-          throw new Error('Actor not found: actorMissing0001');
+          throw new InvalidInputError('Actor not found: actorMissing0001');
         }),
       } as unknown as FoundryClient;
-      await expect(handleGetActorItems({ actorId: 'actorMissing0001' }, client)).rejects.toThrow(
-        /Actor not found/,
+      const error = await handleGetActorItems({ actorId: 'actorMissing0001' }, client).catch(
+        (e: unknown) => e,
       );
+      expect(error).toBeInstanceOf(McpError);
+      expect((error as McpError).code).toBe(ErrorCode.InvalidParams);
+      expect((error as McpError).message).toMatch(/Actor not found/);
+    });
+
+    it('still reports other client failures as internal errors', async () => {
+      const client = {
+        getActorItems: vi.fn(() => {
+          throw new Error('Not connected — no world data available.');
+        }),
+      } as unknown as FoundryClient;
+      const error = await handleGetActorItems({ actorId: 'actorMissing0001' }, client).catch(
+        (e: unknown) => e,
+      );
+      expect((error as McpError).code).toBe(ErrorCode.InternalError);
     });
   });
 
@@ -228,6 +243,49 @@ describe('handleGetActorItems', () => {
       expect(text).toContain('Elara');
       expect(text).toContain(ACTOR_ID);
       expect(text).toContain(`${WIZARD_ITEMS.length} of ${WIZARD_ITEMS.length} items`);
+    });
+
+    it('lists only the first `limit` items in display order and says how many are left', async () => {
+      const text = await run({ actorId: ACTOR_ID, limit: 3 });
+      expect(text).toContain(`**Showing:** 3 of ${WIZARD_ITEMS.length} items`);
+      // Display order: classes, subclasses, then features by name.
+      expect(text).toContain('classWizard00001');
+      expect(text).toContain('subclassEvoc0001');
+      expect(text).toContain('featRecharge0001'); // Arcane Burst sorts before Aura of Selune
+      expect(text).not.toContain('featAuraSelune01');
+      expect(text).not.toContain('## Spells');
+      expect(text).toMatch(new RegExp(`${WIZARD_ITEMS.length - 3} more items? not shown`));
+    });
+
+    it('caps a long list at 100 items by default', async () => {
+      const loot: WorldItem[] = Array.from({ length: 120 }, (_, i) => ({
+        _id: `loot${String(i).padStart(12, '0')}`,
+        name: `Trinket ${String(i).padStart(3, '0')}`,
+        type: 'loot',
+        system: {},
+      }));
+      const text = await run({ actorId: ACTOR_ID }, loot);
+      expect(text).toContain('**Showing:** 100 of 120 items');
+      expect(text).toContain('Trinket 099');
+      expect(text).not.toContain('Trinket 100');
+      expect(text).toMatch(/20 more items not shown/);
+    });
+
+    it('counts matches, not owned items, when a filter and the limit both apply', async () => {
+      const text = await run({ actorId: ACTOR_ID, type: 'spell', limit: 1 });
+      const spells = WIZARD_ITEMS.filter((i) => i.type === 'spell').length;
+      expect(text).toContain(
+        `**Showing:** 1 of ${spells} matching items (${WIZARD_ITEMS.length} owned)`,
+      );
+    });
+
+    it.each([0, -1, 2.5, 'ten'])('rejects limit = %s as invalid params', async (limit) => {
+      const { client } = mockClient();
+      const error = await handleGetActorItems(
+        { actorId: ACTOR_ID, limit } as unknown as { actorId: string },
+        client,
+      ).catch((e: unknown) => e);
+      expect((error as McpError).code).toBe(ErrorCode.InvalidParams);
     });
 
     it('prints every item id so the write tools can use it', async () => {
@@ -474,6 +532,17 @@ describe('handleGetActorItems', () => {
     it('says when an item has no stored description', async () => {
       const text = await run({ actorId: ACTOR_ID, itemId: 'spellShield00001' });
       expect(text).toMatch(/Description:\*\* not stored/);
+    });
+
+    it('says "empty" when an item stores a blank description', async () => {
+      const blank: WorldItem = {
+        _id: 'featBlank0000001',
+        name: 'Blank',
+        type: 'feat',
+        system: { description: { value: '<p></p>', chat: '' } },
+      };
+      const text = await run({ actorId: ACTOR_ID, itemId: blank._id }, [blank]);
+      expect(text).toMatch(/Description:\*\* empty/);
     });
 
     it('rejects an itemId the actor does not own', async () => {

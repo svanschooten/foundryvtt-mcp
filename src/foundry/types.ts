@@ -38,9 +38,13 @@ export interface FoundryActor {
   img?: string;
   data?: Record<string, unknown>;
   // Common actor properties
+  /**
+   * Hit points as stored. dnd5e 3.x stores `max` as null for characters (the
+   * sheet calculates it), so each field is present only when a number is stored.
+   */
   hp?: {
-    value: number;
-    max: number;
+    value?: number;
+    max?: number;
     temp?: number;
   };
   ac?: {

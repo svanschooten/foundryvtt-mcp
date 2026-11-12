@@ -109,6 +109,35 @@ describe('htmlToText', () => {
     expect(htmlToText('Roll [[1d4]].')).toBe('Roll 1d4.');
   });
 
+  it('reads inline rolls whose formula holds a bracketed flavor, labelled or not', () => {
+    expect(htmlToText('Deal [[/damage 2d6[fire]]]{2d6 fire} damage.')).toBe(
+      'Deal 2d6 fire damage.',
+    );
+    expect(htmlToText('Deal [[/r 1d6[fire] + 2]] damage.')).toBe('Deal 1d6[fire] + 2 damage.');
+  });
+
+  it('names the kind of a dnd5e check or save roll and spells out its DC', () => {
+    expect(htmlToText('Make a [[/save ability=dex dc=15]].')).toBe('Make a save dex DC 15.');
+    expect(htmlToText('Make a [[/check skill=ath dc=12]].')).toBe('Make a check ath DC 12.');
+    expect(htmlToText('Make a [[/save con]]{Constitution save}.')).toBe(
+      'Make a Constitution save.',
+    );
+  });
+
+  it('prints key=value targets of unlabelled links readably', () => {
+    expect(htmlToText('Use @Check[ability=dex dc=15] now.')).toBe(
+      'Use Check (ability dex, DC 15) now.',
+    );
+  });
+
+  it('keeps the alt text of images', () => {
+    expect(htmlToText('<p>See <img src="map.png" alt="Map of town"> here.</p>')).toBe(
+      'See [image: Map of town] here.',
+    );
+    expect(htmlToText("<p><img alt='Seal' src='seal.webp'/></p>")).toBe('[image: Seal]');
+    expect(htmlToText('<p>Before<img src="x.png" alt="">After</p>')).toBe('BeforeAfter');
+  });
+
   it('drops script and style contents', () => {
     expect(htmlToText('<style>p{}</style><p>Text</p><script>alert(1)</script>')).toBe('Text');
   });

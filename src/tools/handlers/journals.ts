@@ -50,7 +50,7 @@ type JournalPage = NonNullable<WorldJournal['pages']>[number];
 
 /** Default and largest number of characters returned per call. */
 const DEFAULT_MAX_CHARS = 20_000;
-const MAX_MAX_CHARS = 100_000;
+const MAX_MAX_CHARS = 50_000;
 /** How far back from the cut point to look for whitespace to break on. */
 const BREAK_WINDOW = 200;
 
@@ -126,7 +126,13 @@ function partEnd(text: string, offset: number, maxChars: number): number {
       return i;
     }
   }
-  return limit;
+  // No whitespace nearby: cut hard, but never between the halves of a
+  // surrogate pair (an emoji or other astral character).
+  return isLowSurrogate(text.charCodeAt(limit)) && limit - 1 > offset ? limit - 1 : limit;
+}
+
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
 }
 
 function optionalCount(name: string, value: unknown, min: number): number | undefined {
@@ -198,9 +204,21 @@ export async function handleGetJournal(
       throw invalid(`offset ${offset} is past the end of the text (${body.length} characters).`);
     }
     const end = partEnd(body, offset, maxChars);
+    // The offset only means something for the same selection, so the next call
+    // repeats the page and size arguments, not just the new offset.
+    const next = [
+      `journalId: ${JSON.stringify(args.journalId)}`,
+      pageId !== undefined
+        ? `pageId: ${JSON.stringify(pageId)}`
+        : pageName !== undefined && `pageName: ${JSON.stringify(pageName)}`,
+      `maxChars: ${maxChars}`,
+      `offset: ${end}`,
+    ]
+      .filter(Boolean)
+      .join(', ');
     const footer =
       end < body.length
-        ? `_Showing characters ${offset}–${end} of ${body.length}. More follows: call get_journal again with offset: ${end}._`
+        ? `_Showing characters ${offset}–${end} of ${body.length}. More follows: call get_journal again with ${next}._`
         : `_End of text (characters ${offset}–${end} of ${body.length})._`;
 
     return {

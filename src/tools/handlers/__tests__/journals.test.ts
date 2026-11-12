@@ -351,6 +351,86 @@ describe('handleGetJournal — full text and paging', () => {
       expect(second).not.toContain('**Pages (');
     });
 
+    it('names every argument the continuation call needs, page selection included', async () => {
+      const text = await read({ pageId: 'pageHistory00001', maxChars: 1000 });
+      const footer = text.slice(text.search(/\n\n_Showing/));
+      expect(footer).toContain(`journalId: "${LORE._id}"`);
+      expect(footer).toContain('pageId: "pageHistory00001"');
+      expect(footer).toContain('maxChars: 1000');
+      expect(footer).toMatch(/offset: \d+/);
+    });
+
+    it('repeats a pageName selection in the continuation call', async () => {
+      const text = await read({ pageName: 'history', maxChars: 1000 });
+      expect(text).toContain('pageName: "history"');
+      expect(text).not.toContain('pageId:');
+    });
+
+    it('leaves out page and size arguments that were not given', async () => {
+      const text = await read({ maxChars: 500 });
+      const footer = text.slice(text.search(/\n\n_Showing/));
+      expect(footer).not.toContain('pageId');
+      expect(footer).not.toContain('pageName');
+      expect(footer).toContain('maxChars: 500');
+    });
+
+    it('never cuts an emoji in half when it has to cut without whitespace', async () => {
+      const journal: MockJournal = {
+        _id: 'jrnlEmoji0000001',
+        name: 'Emoji',
+        pages: [
+          {
+            _id: 'pageEmoji0000001',
+            name: 'E',
+            type: 'text',
+            text: { content: `<p>${'🐉'.repeat(400)}</p>`, format: 1 },
+          },
+        ],
+      };
+      const client = clientFor(journal);
+      let offset = 0;
+      const parts: string[] = [];
+      for (let guard = 0; guard < 10; guard++) {
+        const text = getText(
+          await handleGetJournal({ journalId: journal._id, maxChars: 301, offset }, client),
+        );
+        const body = text.slice(
+          text.indexOf('\n\n', text.indexOf('ID:')) + 2,
+          text.search(/\n\n_/),
+        );
+        parts.push(body);
+        expect(body).not.toMatch(/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/);
+        const next = text.match(/offset: (\d+)/);
+        if (!next) {
+          break;
+        }
+        offset = Number(next[1]);
+      }
+      expect(parts.join('')).toContain('🐉'.repeat(400));
+    });
+
+    it('caps maxChars at 50000 characters per call', async () => {
+      const journal: MockJournal = {
+        _id: 'jrnlHuge00000001',
+        name: 'Huge',
+        pages: [
+          {
+            _id: 'pageHuge00000001',
+            name: 'Huge',
+            type: 'text',
+            text: { content: `<p>${'word '.repeat(20_000)}</p>`, format: 1 },
+          },
+        ],
+      };
+      const text = getText(
+        await handleGetJournal({ journalId: journal._id, maxChars: 1_000_000 }, clientFor(journal)),
+      );
+      const end = Number(text.match(/Showing characters 0–(\d+)/)?.[1]);
+      expect(end).toBeGreaterThan(0);
+      expect(end).toBeLessThanOrEqual(50_000);
+      expect(text).toContain('maxChars: 50000');
+    });
+
     it('says when the whole text fits', async () => {
       const text = await read({ pageId: 'pageNotes0000001' });
       expect(text).not.toMatch(/offset: \d+/);

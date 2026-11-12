@@ -128,7 +128,7 @@ describe('handleSearchActors', () => {
     expect(client.searchActors).toHaveBeenCalledWith({ query: '', limit: 10 });
   });
 
-  it('says "not stored" when no level is stored, and keeps "Unknown" for missing HP', async () => {
+  it('says "not stored" when no level or HP is stored', async () => {
     const actors: FoundryActor[] = [
       buildActor({ name: 'Mystery', level: undefined, hp: undefined }),
     ];
@@ -141,7 +141,28 @@ describe('handleSearchActors', () => {
     const text = getText(result);
 
     expect(text).toContain('Level not stored');
-    expect(text).toContain('HP: Unknown/Unknown');
+    expect(text).toContain('HP: not stored');
+    expect(text).not.toContain('Unknown');
+  });
+
+  it.each([
+    [{ value: 0, max: 25 }, 'HP: 0/25'],
+    [{ value: 12 }, 'HP: 12 (max not stored)'],
+    [{ max: 25 }, 'HP: not stored (max 25)'],
+  ])('prints stored HP %j as "%s", zero included', async (hp, expected) => {
+    const searchResult: ActorSearchResult = {
+      actors: [buildActor({ hp })],
+      total: 1,
+      page: 1,
+      limit: 10,
+    };
+    const client = {
+      searchActors: vi.fn().mockResolvedValue(searchResult),
+    } as unknown as FoundryClient;
+
+    const text = getText(await handleSearchActors({}, client));
+
+    expect(text).toContain(expected);
   });
 
   it('shows the class breakdown after the level of a multiclass character', async () => {
@@ -205,6 +226,26 @@ describe('handleGetActorDetails', () => {
     expect(text).toContain('**Armor Class:** 15');
     expect(text).toContain('**STR:** 16 (+3)');
     expect(text).toContain('**DEX:** 14 (+2)');
+  });
+
+  it('prints a downed actor as 0 HP, not Unknown, and an unstored AC as not stored', async () => {
+    const actor = buildActor({ hp: { value: 0, max: 25 }, ac: undefined });
+    const client = { getActor: vi.fn().mockResolvedValue(actor) } as unknown as FoundryClient;
+
+    const text = getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+
+    expect(text).toContain('**Hit Points:** 0/25');
+    expect(text).toContain('**Armor Class:** not stored');
+    expect(text).not.toContain('Unknown');
+  });
+
+  it('prints a stored AC of 0', async () => {
+    const actor = buildActor({ ac: { value: 0 } });
+    const client = { getActor: vi.fn().mockResolvedValue(actor) } as unknown as FoundryClient;
+
+    const text = getText(await handleGetActorDetails({ actorId: 'actor-1' }, client));
+
+    expect(text).toContain('**Armor Class:** 0');
   });
 
   it('lists classes with their subclasses for a multiclass character', async () => {

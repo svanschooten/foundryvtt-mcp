@@ -108,7 +108,7 @@ export async function routeToolRequest(
         throw new Error('Missing required parameter: actorId');
       }
       return handleGetActorItems(
-        args as { actorId: string; type?: string; query?: string; itemId?: string },
+        args as { actorId: string; type?: string; query?: string; itemId?: string; limit?: number },
         foundryClient,
       );
 
